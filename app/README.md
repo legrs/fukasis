@@ -34,3 +34,9 @@ https://drive.google.com/drive/folders/1q-Xi66r9kKZ9j8fXLy9CvfW7w3_RXvYZ?usp=dri
 ## About this repository
 とりあえずAndroidStudioのProjectのdirectoryをそのままuploadしました．buildにはc++のopencvが必要です
 
+
+```
+sdk.dir=Android/Sdkのパス
+org.gradle.java.home=jbrのパス
+opencv.dir=このrepositoryをcloneしたパス/app/app/src/main/sdk/native/jni
+```
