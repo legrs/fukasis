@@ -14,19 +14,19 @@ import android.widget.ImageView;
 import android.widget.Button;
 import android.widget.EditText;
 
-import com.example.ssa.databinding.ActivityCsvMakeBinding;
+import com.example.ssa.databinding.ActivityCsvBinding;
 
 import android.content.ContentResolver;
 import android.provider.MediaStore;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
-public class CsvMake extends AppCompatActivity{
+public class CsvActivity extends AppCompatActivity{
 
     private ImageView iv;
     private EditText path_et; //et=EditText
 
-    private ActivityCsvMakeBinding binding;
+    private ActivityCsvBinding binding;
 
     int[] pos = {0,0};
     float scale = 0.4F;
@@ -38,7 +38,7 @@ public class CsvMake extends AppCompatActivity{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        binding = ActivityCsvMakeBinding.inflate(getLayoutInflater());
+        binding = ActivityCsvBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
         //setContentView(R.layout.activity_main);

@@ -106,7 +106,7 @@ public class Cam{
         this.doPreview = true;
     }
 
-    private Uri getUri(String path, String name, String type,ContentResolver resolver,ContentValues values){
+    public static Uri getUri(Activity activity, String path, String name, String type,ContentResolver resolver,ContentValues values){
         Uri collection = MediaStore.Files.getContentUri("external");
         Uri uri = null;
         String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
@@ -353,8 +353,8 @@ public class Cam{
             ContentValues valuesTiff = new ContentValues();
             ContentValues valuesPng = new ContentValues();
             ContentResolver resolver = activity.getContentResolver();
-            Uri uriTiff = getUri("Documents/SSA/imgs/" + sequenceName + "/", "stacked.tif", "image/tiff",resolver , valuesTiff);
-            Uri uriPng = getUri("Documents/SSA/imgs/" + sequenceName + "/", "stacked.jpg", "image/jpeg",resolver , valuesPng);
+            Uri uriTiff = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/", "stacked.tif", "image/tiff",resolver , valuesTiff);
+            Uri uriPng = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/", "stacked.jpg", "image/jpeg",resolver , valuesPng);
 
             // save tiff
             //ContentValues values = new ContentValues();
@@ -514,7 +514,7 @@ public class Cam{
     private void saveDNG(Image img, TotalCaptureResult result){
         ContentValues values = new ContentValues();
         ContentResolver resolver = activity.getContentResolver();
-        Uri uri = getUri("Documents/SSA/imgs/" + sequenceName + "/" , currentCount + ".dng" , "image/x-adobe-dng", resolver , values);
+        Uri uri = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/" , currentCount + ".dng" , "image/x-adobe-dng", resolver , values);
         DngCreator dngCreator = new DngCreator(camCharacteristics, result);
         //ContentResolver resolver = activity.getContentResolver();
         //Uri collection = MediaStore.Files.getContentUri("external");

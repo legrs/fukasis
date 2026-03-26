@@ -144,7 +144,7 @@
                     android:layout_weight="0.6"
                     android:ems="10"
                     android:inputType="text"
-                    android:text="Name" />
+                    android:hint="Name" />
 
             </LinearLayout>
 
@@ -169,7 +169,7 @@
                     android:layout_weight="0.6"
                     android:ems="10"
                     android:inputType="number"
-                    android:text="3" />
+                    android:text="1" />
 
             </LinearLayout>
 

@@ -5,7 +5,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".CsvMake">
+    tools:context=".CsvActivity">
 
 
     <LinearLayout
@@ -25,7 +25,7 @@
             android:layout_height="46dp"
             android:ems="10"
             android:inputType="text"
-            android:text="Name"
+            android:hint="Name"
             tools:layout_editor_absoluteX="16dp"
             tools:layout_editor_absoluteY="54dp" />
 

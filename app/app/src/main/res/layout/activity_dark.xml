@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".DarkActivity">
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="0.5"
+        android:orientation="vertical"
+        android:weightSum="1">
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="50dp" />
+
+        <TextView
+            android:id="@+id/t1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Light" />
+        <EditText
+            android:id="@+id/input1"
+            android:layout_width="257dp"
+            android:layout_height="46dp"
+            android:ems="10"
+            android:inputType="text"
+            android:hint="Sequence Name"
+            tools:layout_editor_absoluteX="16dp"
+            tools:layout_editor_absoluteY="54dp" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="50dp" />
+
+        <TextView
+            android:id="@+id/t2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Dark" />
+        <EditText
+            android:id="@+id/input2"
+            android:layout_width="257dp"
+            android:layout_height="46dp"
+            android:ems="10"
+            android:inputType="text"
+            android:hint="Squence Name"
+            tools:layout_editor_absoluteX="16dp"
+            tools:layout_editor_absoluteY="54dp" />
+
+
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="50dp" />
+
+
+        <Button
+            android:id="@+id/export"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="process"
+            tools:layout_editor_absoluteX="263dp"
+            tools:layout_editor_absoluteY="657dp" />
+
+    </LinearLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

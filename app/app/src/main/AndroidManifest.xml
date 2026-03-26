@@ -17,7 +17,13 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SSA">
         <activity
-            android:name=".CsvMake"
+            android:name=".CalibActivity"
+            android:exported="false" />
+        <activity
+            android:name=".DarkActivity"
+            android:exported="false" />
+        <activity
+            android:name=".CsvActivity"
             android:exported="false" />
         <activity
             android:name=".senCal"

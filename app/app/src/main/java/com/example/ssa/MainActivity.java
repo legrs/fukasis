@@ -31,23 +31,27 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v){
                 Intent intent = new Intent(MainActivity.this, CapActivity.class);
                 startActivity(intent);
-                Log.d("a ", "start transition to capture mode！");
             }
         });
-        Button make_csv = binding.csvBtn;
-        make_csv.setOnClickListener(new View.OnClickListener(){
+        Button dark = binding.darkBtn;
+        dark.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
-                Intent intent = new Intent(MainActivity.this, CsvMake.class);
+                Intent intent = new Intent(MainActivity.this, DarkActivity.class);
                 startActivity(intent);
-                Log.d("a ", "start transition to capture mode！");
             }
         });
-        Button view = binding.viewBtn;
-        view.setOnClickListener(new View.OnClickListener(){
+        Button csv = binding.csvBtn;
+        csv.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
-                Intent intent = new Intent(MainActivity.this, ViewActivity.class);
+                Intent intent = new Intent(MainActivity.this, CsvActivity.class);
                 startActivity(intent);
-                Log.d("a ", "start transition to capture mode！");
+            }
+        });
+        Button calibration = binding.calibBtn;
+        calibration.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                Intent intent = new Intent(MainActivity.this, CalibActivity.class);
+                startActivity(intent);
             }
         });
 
