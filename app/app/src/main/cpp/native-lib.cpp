@@ -246,6 +246,7 @@ Java_com_example_ssa_DarkActivity_processImgs(
 
 
         Mat result = lightMat - darkMat;
+        // for debug
         //Mat result16;
         //result.convertTo(result16, CV_16UC1);
 
@@ -267,4 +268,119 @@ Java_com_example_ssa_DarkActivity_processImgs(
 
 }
 
+JNIEXPORT jstring JNICALL
+Java_com_example_ssa_CsvActivity_makecsv(
+        JNIEnv* env, jobject,
+        jint fd1
+        jint fol
+        ) {
+
+    stringstream ss;
+
+    // get file size
+    struct stat sb;
+    if (fstat(fd1, &sb) == -1) return env->NewStringUTF("fd1 error");
+    size_t fileSize = sb.st_size;
+
+    // ファイルをメモリ空間に投影
+    void* mapAddr = mmap(NULL, fileSize, PROT_READ, MAP_PRIVATE, fd1, 0);
+    if (mapAddr == MAP_FAILED) return env->NewStringUTF("fd1 map failed");
+    Mat rawDatMat(1, fileSize, CV_32FC1, mapAddr);
+    Mat img = imdecode(rawDatMat, IMREAD_UNCHANGED);
+    // release
+    munmap(mapAddr, fileSize);
+
+        // make csv
+
+    /*
+    fstream csv(CSV_PATH , ios::out);
+    csv << "x/px,b,g,r  max 65535 px  fol:" << fol <<  endl;
+    int y1 = h/2 - width/2 + ofs;
+    int y2 = h/2 + width/2 + ofs;
+
+    double pixel[w][3];
+    const double sigma_thres = 3.0;
+    for(int x=fol; x>0; x--){
+        pixel[x][0] = 0;
+        pixel[x][1] = 0;
+        pixel[x][2] = 0;
+        int count[3] = {0,0,0};
+        double mean[3] = {0,0,0};
+        double sigma[3] = {0,0,0};
+        // get mean
+        for(int y=y1; y<y2; y++){
+            int ch = 1; // b g r
+            if(x%2 != 0 && y%2 == 0){
+                ch = 0;
+            }else if(x%2 == 0 && y%2 != 0){
+                ch = 2;
+            }
+            double val = (double)img.at<TYPE>(y,x);
+            mean[ch] += val;
+            count[ch]++;
+        }
+        mean[0]/=(double)count[0];
+        mean[1]/=(double)count[1];
+        mean[2]/=(double)count[2];
+        //cout << "mean : " << mean[0] << endl;
+        // get variance(sigma)
+        for(int y=y1; y<y2; y++){
+            int ch = 1; // b g r
+            if(x%2 != 0 && y%2 == 0){
+                ch = 0;
+            }else if(x%2 == 0 && y%2 != 0){
+                ch = 2;
+            }
+            double val = (double)img.at<TYPE>(y,x);
+            sigma[ch] += pow(val-mean[ch],2);
+        }
+        sigma[0] = sqrt(sigma[0]/(double)count[0]);
+        sigma[1] = sqrt(sigma[1]/(double)count[1]);
+        sigma[2] = sqrt(sigma[2]/(double)count[2]);
+        //cout << "sigma : " << sigma_thres*sigma[0] << endl;
+        // accumulate
+        int error = 0;
+        for(int y=y1; y<y2; y++){
+            int ch = 1; // b g r
+            if(x%2 != 0 && y%2 == 0){
+                ch = 0;
+            }else if(x%2 == 0 && y%2 != 0){
+                ch = 2;
+            }
+            double val = (double)img.at<TYPE>(y,x);
+            // sigma clipping
+            if(DO_CLIP){
+                if(sigma_thres*sigma[ch] < abs(val-mean[ch])){
+                    cout << "error : "
+                        << val << " "
+                        << sigma_thres*sigma[ch] << endl;
+                    count[ch]--;
+                }else{
+                    if(val < 0){
+                        val = 0;
+                    }
+                    pixel[x][ch] += val;
+                }
+            }else{
+                if(val < 0){
+                    val = 0;
+                }
+                pixel[x][ch] += val;
+            }
+        }
+        for(int ch=0; ch<3; ch++){
+            if(count[ch] <= 0){
+                count[ch] = 1;
+            }
+        }
+        csv << fol - x << ","
+            << pixel[x][0]/(count[0]) << "," 
+            << pixel[x][1]/(count[1]) << "," 
+            << pixel[x][2]/(count[2]) << endl;
+    }
+*/
+
+    return env->NewStringUTF(ss.str().c_str());
+
+}
 }
