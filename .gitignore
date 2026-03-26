@@ -1,0 +1,12 @@
+app/local.properties
+app/.gradle/
+app/build/
+app/*/build/
+app/app/.cxx/
+app/.idea
+app/*.iml
+app/*.ipr
+app/*.iws
+
+app/*.jks
+app/*.keystore
