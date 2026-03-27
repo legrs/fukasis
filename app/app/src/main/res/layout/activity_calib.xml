@@ -10,7 +10,6 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_weight="0.5"
         android:orientation="vertical"
         android:weightSum="1">
 
@@ -56,13 +55,29 @@
             android:layout_width="match_parent"
             android:layout_height="20dp" />
 
-        <ImageView
-            android:id="@+id/iv"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:scaleType="centerCrop"
-            app:layout_constraintRight_toRightOf="parent"
-            app:srcCompat="@android:drawable/ic_menu_gallery" />
+            android:orientation="horizontal"
+            android:weightSum="1">
+
+            <ImageView
+                android:id="@+id/iv1"
+                android:layout_height="match_parent"
+                android:layout_width="0dp"
+                android:layout_weight="0.8"
+                android:scaleType="centerCrop"
+                app:srcCompat="@android:drawable/ic_menu_gallery" />
+            <ImageView
+                android:id="@+id/iv2"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.2"
+                android:scaleType="centerCrop"
+                app:layout_constraintRight_toRightOf="parent"
+                app:srcCompat="@android:drawable/ic_menu_gallery" />
+
+        </LinearLayout>
 
         <Space
             android:layout_width="match_parent"
@@ -77,91 +92,129 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="50" />
-
         <SeekBar
             android:id="@+id/sb1"
+            android:layout_height="30dp"
             android:layout_width="match_parent"
-            android:layout_height="20dp"
-            android:max="300"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:layout_editor_absoluteY="125dp" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="20dp" />
+            android:min="350"
+            android:max="600"
+            app:layout_constraintStart_toStartOf="parent"/>
 
         <TextView
             android:id="@+id/t2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="50" />
-
-        <SeekBar
-            android:id="@+id/sb2"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="20dp"
-            android:max="3500"
-            android:min="1500"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:layout_editor_absoluteY="125dp" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="20dp" />
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="1">
+            <SeekBar
+                android:id="@+id/sb2"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:min="1900"
+                android:max="2860"
+                android:layout_weight="0.8"
+                app:layout_constraintStart_toStartOf="parent"/>
+            <EditText
+                android:id="@+id/c1"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.2"
+                android:inputType="numberDecimal"
+                android:text="435.8"
+                android:hint="nm"
+                android:textColor="#FFFFFF"/>
+        </LinearLayout>
 
         <TextView
             android:id="@+id/t3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="50" />
-
-        <SeekBar
-            android:id="@+id/sb3"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="20dp"
-            android:max="3500"
-            android:min="1500"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:layout_editor_absoluteY="125dp" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="20dp" />
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="1">
+            <SeekBar
+                android:id="@+id/sb3"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:min="1900"
+                android:max="2860"
+                android:layout_weight="0.8"
+                app:layout_constraintStart_toStartOf="parent"/>
+            <EditText
+                android:id="@+id/c2"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.2"
+                android:inputType="numberDecimal"
+                android:text="546.1"
+                android:hint="nm"
+                android:textColor="#FFFFFF"/>
+        </LinearLayout>
 
         <TextView
             android:id="@+id/t4"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="50" />
-
-        <SeekBar
-            android:id="@+id/sb4"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="20dp"
-            android:min="1500"
-            android:max="3500"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:layout_editor_absoluteY="125dp" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="20dp" />
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="1">
+            <SeekBar
+                android:id="@+id/sb4"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:min="1900"
+                android:max="2860"
+                android:layout_weight="0.8"
+                app:layout_constraintStart_toStartOf="parent"/>
+            <EditText
+                android:id="@+id/c3"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.2"
+                android:inputType="numberDecimal"
+                android:text="588.0"
+                android:hint="nm"
+                android:textColor="#FFFFFF"/>
+        </LinearLayout>
 
         <TextView
             android:id="@+id/t5"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="50" />
-
-        <SeekBar
-            android:id="@+id/sb5"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="20dp"
-            android:min="1500"
-            android:max="3500"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:layout_editor_absoluteY="125dp" />
-
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="1">
+            <SeekBar
+                android:id="@+id/sb5"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:min="1900"
+                android:max="2860"
+                android:layout_weight="0.8"
+                app:layout_constraintStart_toStartOf="parent"/>
+            <EditText
+                android:id="@+id/c4"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.2"
+                android:inputType="numberDecimal"
+                android:text="611.6"
+                android:hint="nm"
+                android:textColor="#FFFFFF"/>
+        </LinearLayout>
 
 
 
@@ -186,7 +239,7 @@
     <FrameLayout
         android:id="@+id/l1"
         android:layout_width="0dp"
-        android:layout_height="80dp"
+        android:layout_height="50dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view1"
@@ -197,46 +250,46 @@
     <FrameLayout
         android:id="@+id/l2"
         android:layout_width="0dp"
-        android:layout_height="80dp"
+        android:layout_height="50dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view2"
             android:layout_width="3px"
             android:layout_height="220dp"
-            android:background="#FF0000" />
+            android:background="#FF00FF" />
     </FrameLayout>
     <FrameLayout
         android:id="@+id/l3"
         android:layout_width="0dp"
-        android:layout_height="80dp"
+        android:layout_height="50dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view3"
             android:layout_width="3px"
             android:layout_height="220dp"
-            android:background="#00FF00" />
+            android:background="#0000FF" />
     </FrameLayout>
     <FrameLayout
         android:id="@+id/l4"
         android:layout_width="0dp"
-        android:layout_height="80dp"
+        android:layout_height="50dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view4"
             android:layout_width="3px"
             android:layout_height="220dp"
-            android:background="#0000FF" />
+            android:background="#00FF00" />
     </FrameLayout>
     <FrameLayout
         android:id="@+id/l5"
         android:layout_width="0dp"
-        android:layout_height="80dp"
+        android:layout_height="50dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view5"
             android:layout_width="3px"
             android:layout_height="220dp"
-            android:background="#FF00FF" />
+            android:background="#FF0000" />
     </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

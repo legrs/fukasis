@@ -367,7 +367,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
 
         // write as csv
 
-    if(dprintf(fd4, "header\n") < 0){
+    if(dprintf(fd4, "%s\n",header.c_str()) < 0){
         ss << "dprintf failed" << endl;
     }
     ss << header << endl;

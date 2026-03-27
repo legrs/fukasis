@@ -36,7 +36,7 @@ public class CsvActivity extends AppCompatActivity{
     private Activity activity = this;
 
     int[] pos = {0,0};
-    float scale = 0.4F;
+    float scale = 0.6F;
     float imgWidth ;
     float imgHeight ;
     float dispWidth ;
@@ -251,7 +251,7 @@ public class CsvActivity extends AppCompatActivity{
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
                 t1.setText("" + i);
-                fol = imgWidth - (300+i);
+                fol = imgWidth - i;
                 line.setX(dispWidth+(-imgWidth + fol)*scale);
                 line.setY(pos[1]-50);
             }

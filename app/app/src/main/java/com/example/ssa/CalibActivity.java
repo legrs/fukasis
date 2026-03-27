@@ -29,7 +29,9 @@ import java.io.IOException;
 
 public class CalibActivity extends AppCompatActivity{
 
-    private ImageView iv;
+    //435.8, 546.1, 588.0, 611.6
+    private ImageView iv1;
+    private ImageView iv2;
     private EditText path_et1; //et=EditText
     private EditText path_et2; //et=EditText
 
@@ -37,22 +39,26 @@ public class CalibActivity extends AppCompatActivity{
     private Activity activity = this;
 
     int[] pos = {0,0};
-    float scale = 0.3F;
-    float imgWidth ;
-    float imgHeight ;
-    float dispWidth ;
-    float dispHeight;
-    float fol;
-    float[] t = {0,0,0,0};
+    float scale = 0.9F;
+    int iv1_ofs = -1200;
+    int iv2_ofs = 350;
+    int imgWidth ;
+    int imgHeight ;
+    int dispWidth1 ;
+    int dispWidth2 ;
+    int dispHeight;
+    int fol;
+    int[] t = {0,0,0,0};
     float[] c = {0,0,0,0};
     SeekBar[] sb;
     TextView[] tv;
+    EditText[] et;
     FrameLayout[] line;
 
     private void changesb(int j, int i){
         tv[j].setText("" + i);
-        c[j] = (imgWidth - (i));
-        line[j].setX(dispWidth+(-imgWidth + c[j])*scale);
+        t[j] = (imgWidth - i);
+        line[j].setX((t[j] +iv1_ofs)*scale);
         line[j].setY(pos[1]-50);
     }
 
@@ -72,6 +78,7 @@ public class CalibActivity extends AppCompatActivity{
         TextView t1 = binding.t1;
         sb = new SeekBar[]{binding.sb2,binding.sb3,binding.sb4,binding.sb5};
         tv = new TextView[]{binding.t2,binding.t3,binding.t4,binding.t5};
+        et = new EditText[]{binding.c1,binding.c2,binding.c3,binding.c4};
         //SeekBar sb3 = binding.sb3;
         //TextView t3 = binding.t3;
         //SeekBar sb4 = binding.sb4;
@@ -80,8 +87,10 @@ public class CalibActivity extends AppCompatActivity{
         //TextView t5 = binding.t5;
         FrameLayout l1 = binding.l1;
         line = new FrameLayout[]{binding.l2,binding.l3,binding.l4,binding.l5};
-        iv = binding.iv;
-        iv.setScaleType(ImageView.ScaleType.MATRIX);
+        iv1 = binding.iv1;
+        iv1.setScaleType(ImageView.ScaleType.MATRIX);
+        iv2 = binding.iv2;
+        iv2.setScaleType(ImageView.ScaleType.MATRIX);
 
         
         path_et1 = binding.input1;
@@ -117,22 +126,30 @@ public class CalibActivity extends AppCompatActivity{
 
                 }
                 if(uri != null){
-                    iv.setImageURI(uri);
+                    iv1.setImageURI(uri);
+                    iv2.setImageURI(uri);
                     Log.d("a", "open");
                     Matrix matrix = new Matrix();
-                    dispWidth = iv.getWidth();
-                    dispHeight = iv.getHeight();
-                    imgWidth = iv.getDrawable().getIntrinsicWidth();
-                    imgHeight = iv.getDrawable().getIntrinsicHeight();
-                    Log.d("a","" + dispWidth);
+                    dispWidth1 = iv1.getWidth();
+                    dispWidth2 = iv2.getWidth();
+                    dispHeight = iv1.getHeight();
+                    imgWidth = iv1.getDrawable().getIntrinsicWidth();
+                    imgHeight = iv1.getDrawable().getIntrinsicHeight();
+                    Log.d("a","" + dispWidth1);
+                    Log.d("a","" + dispWidth2);
                     Log.d("a","" + dispHeight);
                     Log.d("a","" + imgWidth);
                     Log.d("a","" + imgHeight);
                     matrix.setScale(scale, scale);
-                    //matrix.postTranslate(dispWidth - scale*imgWidth, -(imgHeight-dispHeight)/2);
-                    matrix.postTranslate(dispWidth - scale*imgWidth, -(scale*imgHeight-dispHeight)/2);
-                    iv.setImageMatrix(matrix);
-                    iv.getLocationOnScreen(pos);
+                    matrix.postTranslate(scale*iv1_ofs, -(scale*imgHeight-dispHeight)/2);
+                    iv1.setImageMatrix(matrix);
+
+                    matrix = new Matrix();
+                    matrix.setScale(scale, scale);
+                    matrix.postTranslate(dispWidth2 - scale*(imgWidth-iv2_ofs), -(scale*imgHeight-dispHeight)/2);
+                    iv2.setImageMatrix(matrix);
+
+                    iv2.getLocationOnScreen(pos);
                 }
 
             }
@@ -142,11 +159,18 @@ public class CalibActivity extends AppCompatActivity{
                 ContentResolver resolver = activity.getContentResolver();
 
                 ContentValues valuesCsv = new ContentValues();
-                Uri uriCsv = Cam.getUri(activity,"Documents/SSA/csv/calibdata/", path_et2.getText().toString() + "csv", "text/csv",resolver , valuesCsv);
+                Uri uriCsv = Cam.getUri(activity,"Documents/SSA/csv/calibdata/", path_et2.getText().toString() + ".csv", "text/csv",resolver , valuesCsv);
 
                 if(uriCsv != null){
                     try(OutputStream output = activity.getContentResolver().openOutputStream(uriCsv)){
-                        String dat = String.format("%d,%d,%d,%d\n%d,%d,%d,%d",t[0],t[1],t[2],t[3],c[0],c[1],c[2],c[3]);
+                        for(int i=0; i<4; i++){
+                            c[i] = Float.parseFloat(et[i].getText().toString());
+                        }
+                        for(int i=0; i<4; i++){
+                            t[i] = fol - t[i];
+                            //folとの相対
+                        }
+                        String dat = String.format("%d,%d,%d,%d\n%f,%f,%f,%f",t[0],t[1],t[2],t[3],c[0],c[1],c[2],c[3]);
 
                         output.write(dat.getBytes("UTF-8"));
 
@@ -168,8 +192,8 @@ public class CalibActivity extends AppCompatActivity{
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
                 t1.setText("" + i);
-                fol = imgWidth - (300+i);
-                l1.setX(dispWidth+(-imgWidth + fol)*scale);
+                fol = imgWidth - i;
+                l1.setX(pos[0]+dispWidth2+(-imgWidth + fol + iv2_ofs)*scale);
                 l1.setY(pos[1]-50);
             }
             @Override
@@ -182,7 +206,6 @@ public class CalibActivity extends AppCompatActivity{
         sb[0].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                Log.d("a","" + i);
                 changesb(0,i);
             }
             @Override
@@ -195,7 +218,6 @@ public class CalibActivity extends AppCompatActivity{
         sb[1].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                Log.d("a","" + i);
                 changesb(1,i);
             }
             @Override
@@ -208,7 +230,6 @@ public class CalibActivity extends AppCompatActivity{
         sb[2].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                Log.d("a","" + i);
                 changesb(2,i);
             }
             @Override
@@ -221,7 +242,6 @@ public class CalibActivity extends AppCompatActivity{
         sb[3].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                Log.d("a","" + i);
                 changesb(3,i);
             }
             @Override
