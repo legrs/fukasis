@@ -1,4 +1,6 @@
 package com.example.ssa;
+import android.app.Activity;
+import android.content.ContentValues;
 import android.graphics.Matrix;
 import android.content.ContentUris;
 
@@ -6,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.os.Bundle;
 import android.view.View;
@@ -21,6 +24,8 @@ import android.provider.MediaStore;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import java.io.IOException;
+
 public class CsvActivity extends AppCompatActivity{
 
     private ImageView iv;
@@ -28,6 +33,7 @@ public class CsvActivity extends AppCompatActivity{
     private EditText path_et2; //et=EditText
 
     private ActivityCsvBinding binding;
+    private Activity activity = this;
 
     int[] pos = {0,0};
     float scale = 0.4F;
@@ -107,11 +113,23 @@ public class CsvActivity extends AppCompatActivity{
                     iv.getLocationOnScreen(pos);
                 }
 
+            }
+        });
+        exportBtn.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                ContentResolver resolver = getContentResolver();
+                Uri collection = MediaStore.Files.getContentUri("external");
+                Uri uri1 = null;
+                Uri uri2 = null;
+                Uri uri3 = null;
+
+                String filepath = "Documents/SSA/imgs/" + path_et1.getText().toString() + "/";
+                String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
                     //  tiff image
 
                 boolean isDarked = false;
-                filename = "darked.tif";
-                selectionArgs = new String[]{filename, filepath};
+                String filename = "darked.tif";
+                String[] selectionArgs = {filename, filepath};
                 try(Cursor cursor = resolver.query(
                             collection,
                             new String[]{MediaStore.MediaColumns._ID},
@@ -121,7 +139,7 @@ public class CsvActivity extends AppCompatActivity{
                     if(cursor != null && cursor.moveToFirst()){
                         long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
                         // exsists
-                        uri = ContentUris.withAppendedId(collection, id);
+                        uri1 = ContentUris.withAppendedId(collection, id);
                         Log.d("a","ありましたよっ！");
                         isDarked = true;
                     }
@@ -139,7 +157,7 @@ public class CsvActivity extends AppCompatActivity{
                         if(cursor != null && cursor.moveToFirst()){
                             long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
                             // exsists
-                            uri = ContentUris.withAppendedId(collection, id);
+                            uri1 = ContentUris.withAppendedId(collection, id);
                             Log.d("a","ありましたよっ！");
                         }else{
                             Log.d("a","stacked.tifもないですよ!！");
@@ -148,15 +166,11 @@ public class CsvActivity extends AppCompatActivity{
                     }
                 }
 
-                if(uri!=null){
-                    
-                }
-
-
                     // calibration data
 
-                filepath = "Documents/SSA/calibdata/";
-                filename = path_et2.getText().toString();
+                filepath = "Documents/SSA/csv/calibdata/";
+                filename = path_et2.getText().toString() + ".csv";
+                Log.d("a", filepath + filename);
                 selectionArgs = new String[]{filename, filepath};
                 try(Cursor cursor = resolver.query(
                             collection,
@@ -167,21 +181,69 @@ public class CsvActivity extends AppCompatActivity{
                     if(cursor != null && cursor.moveToFirst()){
                         long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
                         // exsists
-                        uri = ContentUris.withAppendedId(collection, id);
+                        uri2 = ContentUris.withAppendedId(collection, id);
                         Log.d("a","ありましたよっ！");
-                        isDarked = true;
                     }else{
                         Log.d("a","(校正用ファイルが)ないです");
                     }
 
                 }
 
+                    // observation metadata
 
-            }
-        });
-        exportBtn.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
-                makecsv(fd, fol);
+                filepath = "Documents/SSA/imgs/" + path_et1.getText().toString() + "/";
+                filename = "metadata.csv";
+                selectionArgs = new String[]{filename, filepath};
+                try(Cursor cursor = resolver.query(
+                            collection,
+                            new String[]{MediaStore.MediaColumns._ID},
+                            selection,
+                            selectionArgs,
+                            null)){
+                    if(cursor != null && cursor.moveToFirst()){
+                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
+                        // exsists
+                        uri3 = ContentUris.withAppendedId(collection, id);
+                        Log.d("a","ありましたよっ！");
+                    }else{
+                        Log.d("a","(metadataが)ないです");
+                    }
+
+                }
+
+                    // csv file
+
+                ContentValues values = new ContentValues();
+                Uri uri4 = Cam.getUri(activity,"Documents/SSA/csv/spectrum/", path_et1.getText().toString() + ".csv", "text/csv",resolver , values);
+
+
+                try{
+                    if(uri1 != null && uri2 != null){
+                        ParcelFileDescriptor pfd1 = resolver.openFileDescriptor(uri1, "r");
+                        ParcelFileDescriptor pfd2 = resolver.openFileDescriptor(uri2, "r");
+                        ParcelFileDescriptor pfd3 = resolver.openFileDescriptor(uri3, "r");
+                        ParcelFileDescriptor pfd4 = resolver.openFileDescriptor(uri4, "w");
+
+                        if(pfd1 != null && pfd2 != null){
+                            makecsv(pfd1.getFd(), pfd2.getFd(), pfd3.getFd(), pfd4.getFd(), (int)fol);
+
+                            pfd1.close();
+                            pfd2.close();
+                            pfd3.close();
+                            pfd4.close();
+
+                            values.clear();
+                            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                            resolver.update(uri4, values, null, null);
+
+                            Log.d("a", "saved csv");
+
+                        }
+
+                    }
+                }catch(IOException e){
+                    e.printStackTrace();
+                }
             }
         });
         sb1.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -190,7 +252,7 @@ public class CsvActivity extends AppCompatActivity{
                 Log.d("a","" + i);
                 t1.setText("" + i);
                 fol = imgWidth - (300+i*3);
-                line.setX(dispWidth-imgWidth + fol*scale);
+                line.setX(dispWidth+(-imgWidth + fol)*scale);
                 line.setY(pos[1]-50);
             }
 
@@ -216,5 +278,5 @@ public class CsvActivity extends AppCompatActivity{
     }
 
 
-    public native String makecsv(int fd, int fol);
+    public native String makecsv(int fd1, int fd2, int fd3, int fd4, int fol);
 }

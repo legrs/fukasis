@@ -14,6 +14,9 @@
 #include <jni.h>
 #include <jni.h>
 #include <fstream>
+#include <vector>
+#include <stdio.h>
+#include <sstream>
 #include <opencv2/opencv.hpp>
 #include <sys/mman.h> 
 #include <sys/stat.h> 
@@ -181,6 +184,7 @@ Java_com_example_ssa_Cam_saveImg(
 
     stringstream ss;
 
+
     vector<int> tiffParams;
     tiffParams.push_back(IMWRITE_TIFF_COMPRESSION);
     tiffParams.push_back(1); // no comp
@@ -271,30 +275,136 @@ Java_com_example_ssa_DarkActivity_processImgs(
 JNIEXPORT jstring JNICALL
 Java_com_example_ssa_CsvActivity_makecsv(
         JNIEnv* env, jobject,
-        jint fd1
+        jint fd1,
+        jint fd2,
+        jint fd3,
+        jint fd4,
         jint fol
         ) {
 
     stringstream ss;
 
+    double t_ref[4];
+    double c_ref[4];
+    double i_deno[4]; 
+
+         // img
+
     // get file size
     struct stat sb;
     if (fstat(fd1, &sb) == -1) return env->NewStringUTF("fd1 error");
     size_t fileSize = sb.st_size;
-
     // ファイルをメモリ空間に投影
     void* mapAddr = mmap(NULL, fileSize, PROT_READ, MAP_PRIVATE, fd1, 0);
-    if (mapAddr == MAP_FAILED) return env->NewStringUTF("fd1 map failed");
+    if (mapAddr == MAP_FAILED) return env->NewStringUTF("fd1 map filed");
     Mat rawDatMat(1, fileSize, CV_32FC1, mapAddr);
     Mat img = imdecode(rawDatMat, IMREAD_UNCHANGED);
     // release
     munmap(mapAddr, fileSize);
 
-        // make csv
+
+    FILE* file;
+
+    char buff[256];
+
+        // calibdata
+    // double closeしないためにduplicate
+    int fd2_p = dup(fd2);
+    if(fd2_p == -1) return env->NewStringUTF("fd2 dup filed");
+
+    file = fdopen(fd2_p, "r");
+    if(file == nullptr){
+        // とじる！！
+        close(fd2_p);
+        return env->NewStringUTF("");
+    }
+
+    if(fgets(buff, sizeof(buff), file)!=nullptr){
+        string dat(buff);
+        stringstream dats(dat);
+
+        string tmp;
+        for(int i=0; i<4; i++){
+            getline(dats, tmp, ',');
+            t_ref[i] = stod(tmp);
+        }
+    }else{
+        return env->NewStringUTF("校正データがない");
+    }
+    if(fgets(buff, sizeof(buff), file)!=nullptr){
+        string dat(buff);
+        stringstream dats(dat);
+
+        string tmp;
+        for(int i=0; i<4; i++){
+            getline(dats, tmp, ',');
+            c_ref[i] = stod(tmp);
+        }
+    }else{
+        return env->NewStringUTF("校正データがない");
+    }
+    fclose(file);
+
+        // observation infomation
+    string header;
+    // double closeしないためにduplicate
+    int fd3_p = dup(fd3);
+    if(fd3_p == -1) return env->NewStringUTF("fd3 dup filed");
+
+    file = fdopen(fd3_p, "r");
+    if(file == nullptr){
+        // とじる！！
+        close(fd3_p);
+        return env->NewStringUTF("fd3_p file null");
+    }
+
+    buff[256];
+    if(fgets(buff, sizeof(buff), file)!=nullptr){
+        header = string(buff);
+    }else{
+        return env->NewStringUTF("めただだ、ないです");
+    }
+
+        // write as csv
+
+    if(dprintf(fd4, "header\n") < 0){
+        ss << "dprintf failed" << endl;
+    }
+    ss << header << endl;
+
 
     /*
-    fstream csv(CSV_PATH , ios::out);
-    csv << "x/px,b,g,r  max 65535 px  fol:" << fol <<  endl;
+
+
+    // double closeしないためにduplicate
+    int fd4_p = dup(fd4);
+    if(fd4_p == -1) return env->NewStringUTF("fd4 dup filed");
+
+    file = fdopen(fd4_p, "w");
+    if(file == nullptr){
+        // とじる！！
+        close(fd4_p);
+        return env->NewStringUTF("");
+    }
+
+    fprintf(fd4, "hello");
+
+    fflush(file);
+    fsync(fd4_p);
+    fclose(file);
+    */
+
+    stringstream spectrum;
+
+    const int h = img.rows;
+    const int w = img.cols;
+    const int width = 80;
+    const int ofs = 0;
+    const bool DO_CLIP = true;
+    
+
+    vector<double> pure[3];
+
     int y1 = h/2 - width/2 + ofs;
     int y2 = h/2 + width/2 + ofs;
 
@@ -315,7 +425,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
             }else if(x%2 == 0 && y%2 != 0){
                 ch = 2;
             }
-            double val = (double)img.at<TYPE>(y,x);
+            double val = (double)img.at<float>(y,x);
             mean[ch] += val;
             count[ch]++;
         }
@@ -331,7 +441,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
             }else if(x%2 == 0 && y%2 != 0){
                 ch = 2;
             }
-            double val = (double)img.at<TYPE>(y,x);
+            double val = (double)img.at<float>(y,x);
             sigma[ch] += pow(val-mean[ch],2);
         }
         sigma[0] = sqrt(sigma[0]/(double)count[0]);
@@ -347,7 +457,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
             }else if(x%2 == 0 && y%2 != 0){
                 ch = 2;
             }
-            double val = (double)img.at<TYPE>(y,x);
+            double val = (double)img.at<float>(y,x);
             // sigma clipping
             if(DO_CLIP){
                 if(sigma_thres*sigma[ch] < abs(val-mean[ch])){
@@ -373,14 +483,34 @@ Java_com_example_ssa_CsvActivity_makecsv(
                 count[ch] = 1;
             }
         }
-        csv << fol - x << ","
-            << pixel[x][0]/(count[0]) << "," 
-            << pixel[x][1]/(count[1]) << "," 
-            << pixel[x][2]/(count[2]) << endl;
+
+        for(int c=0; c<3; c++){
+            pure[c].push_back(pixel[x][0]/(count[0]));
+        }
     }
-*/
+
+    for(int j=0; j<4; j++){
+        i_deno[j] = 1.0;
+        for(int k=0; k<4; k++){
+            if(k != j){
+                i_deno[j] *= (t_ref[j] - t_ref[k]);
+            }
+        }
+    }
+
+    spectrum << "hoge" << endl;
+
+    dprintf(fd4, "%s", spectrum.str().c_str());
+
+    if(fsync(fd4) == -1){
+        ss << "failed to sync fd";
+    }
 
     return env->NewStringUTF(ss.str().c_str());
-
 }
+
+
+
+
+
 }

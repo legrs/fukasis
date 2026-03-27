@@ -1,4 +1,6 @@
 package com.example.ssa;
+import java.util.Date;
+import java.text.SimpleDateFormat;
 import android.content.ContentUris;
 import android.graphics.Matrix;
 import android.graphics.RectF;
@@ -341,7 +343,11 @@ public class Cam{
 
             // end of capture sequence
             // save csv & tiff
-            File file = new File(activity.getExternalFilesDir(null), "tmp_csv.csv");
+            //File file = new File(activity.getExternalFilesDir(null), "metadata.csv");
+            ContentResolver resolver = activity.getContentResolver();
+
+            ContentValues valuesCsv = new ContentValues();
+            Uri uriCsv = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/", "metadata.csv", "text/csv",resolver , valuesCsv);
 
             //byte[] tiffBytes = processImg(file.getAbsolutePath());
 
@@ -352,7 +358,6 @@ public class Cam{
             // save tiff
             ContentValues valuesTiff = new ContentValues();
             ContentValues valuesPng = new ContentValues();
-            ContentResolver resolver = activity.getContentResolver();
             Uri uriTiff = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/", "stacked.tif", "image/tiff",resolver , valuesTiff);
             Uri uriPng = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/", "stacked.jpg", "image/jpeg",resolver , valuesPng);
 
@@ -365,7 +370,24 @@ public class Cam{
             //Uri uri = activity.getContentResolver().insert(MediaStore.Files.getContentUri("external"), values);
 
             try{
-                if(uriTiff != null && uriPng != null){
+                if(uriCsv != null && uriTiff != null && uriPng != null){
+                        // csv(metadata)
+                    try(OutputStream output = activity.getContentResolver().openOutputStream(uriCsv)){
+
+                        String metadata = String.format("%s, @JST %s,  ISO %d, fd %f, %d msec * %d ",sequenceName, (new SimpleDateFormat("yyyy MM/dd HH:mm:ss")).format(new Date()), iso, fd, expo, sequrnceLength);
+
+                        output.write(metadata.getBytes("UTF-8"));
+
+                        valuesCsv.clear();
+                        valuesCsv.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                        resolver.update(uriCsv, valuesCsv, null, null);
+
+                        Log.d("a", "csv saved at "+uriCsv.toString());
+                    }catch(IOException e){
+                        e.printStackTrace();
+                        resolver.delete(uriCsv, null, null);
+                    }
+                        // imgs
                     ParcelFileDescriptor pfdTiff = resolver.openFileDescriptor(uriTiff, "w");
                     ParcelFileDescriptor pfdPng = resolver.openFileDescriptor(uriPng, "w");
                     if(pfdTiff != null && pfdPng != null){
