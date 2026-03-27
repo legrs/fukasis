@@ -1,4 +1,5 @@
 package com.example.ssa;
+import java.io.OutputStream;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.graphics.Matrix;
@@ -36,7 +37,7 @@ public class CalibActivity extends AppCompatActivity{
     private Activity activity = this;
 
     int[] pos = {0,0};
-    float scale = 0.4F;
+    float scale = 0.3F;
     float imgWidth ;
     float imgHeight ;
     float dispWidth ;
@@ -44,6 +45,16 @@ public class CalibActivity extends AppCompatActivity{
     float fol;
     float[] t = {0,0,0,0};
     float[] c = {0,0,0,0};
+    SeekBar[] sb;
+    TextView[] tv;
+    FrameLayout[] line;
+
+    private void changesb(int j, int i){
+        tv[j].setText("" + i);
+        c[j] = (imgWidth - (i));
+        line[j].setX(dispWidth+(-imgWidth + c[j])*scale);
+        line[j].setY(pos[1]-50);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,19 +70,16 @@ public class CalibActivity extends AppCompatActivity{
         Button exportBtn = binding.export;
         SeekBar sb1 = binding.sb1;
         TextView t1 = binding.t1;
-        SeekBar[] sb = {binding.sb2,binding.sb2,binding.sb2,binding.sb5};
-        TextView[] tv = binding.t2;
-        SeekBar sb3 = binding.sb3;
-        TextView t3 = binding.t3;
-        SeekBar sb4 = binding.sb4;
-        TextView t4 = binding.t4;
-        SeekBar sb5 = binding.sb5;
-        TextView t5 = binding.t5;
+        sb = new SeekBar[]{binding.sb2,binding.sb3,binding.sb4,binding.sb5};
+        tv = new TextView[]{binding.t2,binding.t3,binding.t4,binding.t5};
+        //SeekBar sb3 = binding.sb3;
+        //TextView t3 = binding.t3;
+        //SeekBar sb4 = binding.sb4;
+        //TextView t4 = binding.t4;
+        //SeekBar sb5 = binding.sb5;
+        //TextView t5 = binding.t5;
         FrameLayout l1 = binding.l1;
-        FrameLayout l2 = binding.l2;
-        FrameLayout l3 = binding.l3;
-        FrameLayout l4 = binding.l4;
-        FrameLayout l5 = binding.l5;
+        line = new FrameLayout[]{binding.l2,binding.l3,binding.l4,binding.l5};
         iv = binding.iv;
         iv.setScaleType(ImageView.ScaleType.MATRIX);
 
@@ -131,28 +139,28 @@ public class CalibActivity extends AppCompatActivity{
         });
         exportBtn.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
-                ContentResolver resolver = getContentResolver();
-                ContentValues values = new ContentValues();
-                Uri uri = Cam.getUri(activity,"Documents/SSA/csv/calibdata/", path_et2.getText().toString() + ".csv", "text/csv",resolver , values);
-                try{
-                    if(uri != null){
-                        ParcelFileDescriptor pfd = resolver.openFileDescriptor(uri, "w");
+                ContentResolver resolver = activity.getContentResolver();
 
-                        if(pfd != null){
-                            pfd.close();
+                ContentValues valuesCsv = new ContentValues();
+                Uri uriCsv = Cam.getUri(activity,"Documents/SSA/csv/calibdata/", path_et2.getText().toString() + "csv", "text/csv",resolver , valuesCsv);
 
-                            values.clear();
-                            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                            resolver.update(uri, values, null, null);
+                if(uriCsv != null){
+                    try(OutputStream output = activity.getContentResolver().openOutputStream(uriCsv)){
+                        String dat = String.format("%d,%d,%d,%d\n%d,%d,%d,%d",t[0],t[1],t[2],t[3],c[0],c[1],c[2],c[3]);
 
-                            Log.d("a", "saved calibdata");
+                        output.write(dat.getBytes("UTF-8"));
 
-                        }
+                        valuesCsv.clear();
+                        valuesCsv.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                        resolver.update(uriCsv, valuesCsv, null, null);
 
+                        Log.d("a", "csv saved at "+uriCsv.toString());
+                    }catch(IOException e){
+                        e.printStackTrace();
+                        resolver.delete(uriCsv, null, null);
                     }
-                }catch(IOException e){
-                    e.printStackTrace();
                 }
+
             }
         });
         sb1.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -160,7 +168,7 @@ public class CalibActivity extends AppCompatActivity{
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
                 t1.setText("" + i);
-                fol = imgWidth - (300+i*3);
+                fol = imgWidth - (300+i);
                 l1.setX(dispWidth+(-imgWidth + fol)*scale);
                 l1.setY(pos[1]-50);
             }
@@ -171,14 +179,11 @@ public class CalibActivity extends AppCompatActivity{
             public void onStopTrackingTouch(SeekBar seekBar) {
             }
         });
-        sb2.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        sb[0].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
-                t1.setText("" + i);
-                fol = imgWidth - (300+i*3);
-                l1.setX(dispWidth+(-imgWidth + fol)*scale);
-                l1.setY(pos[1]-50);
+                changesb(0,i);
             }
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
@@ -187,14 +192,11 @@ public class CalibActivity extends AppCompatActivity{
             public void onStopTrackingTouch(SeekBar seekBar) {
             }
         });
-        sb3.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        sb[1].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
-                t1.setText("" + i);
-                fol = imgWidth - (300+i*3);
-                l1.setX(dispWidth+(-imgWidth + fol)*scale);
-                l1.setY(pos[1]-50);
+                changesb(1,i);
             }
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
@@ -203,14 +205,11 @@ public class CalibActivity extends AppCompatActivity{
             public void onStopTrackingTouch(SeekBar seekBar) {
             }
         });
-        sb4.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        sb[2].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
-                t1.setText("" + i);
-                fol = imgWidth - (300+i*3);
-                l1.setX(dispWidth+(-imgWidth + fol)*scale);
-                l1.setY(pos[1]-50);
+                changesb(2,i);
             }
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
@@ -219,14 +218,11 @@ public class CalibActivity extends AppCompatActivity{
             public void onStopTrackingTouch(SeekBar seekBar) {
             }
         });
-        sb5.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        sb[3].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
-                t1.setText("" + i);
-                fol = imgWidth - (300+i*3);
-                l1.setX(dispWidth+(-imgWidth + fol)*scale);
-                l1.setY(pos[1]-50);
+                changesb(3,i);
             }
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
@@ -247,5 +243,6 @@ public class CalibActivity extends AppCompatActivity{
     protected void onPause(){
         super.onPause();
     }
+
 
 }

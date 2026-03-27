@@ -251,7 +251,7 @@ public class CsvActivity extends AppCompatActivity{
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
                 t1.setText("" + i);
-                fol = imgWidth - (300+i*3);
+                fol = imgWidth - (300+i);
                 line.setX(dispWidth+(-imgWidth + fol)*scale);
                 line.setY(pos[1]-50);
             }

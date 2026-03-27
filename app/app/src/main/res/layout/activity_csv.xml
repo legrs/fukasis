@@ -79,6 +79,7 @@
         android:id="@+id/sb1"
         android:layout_width="match_parent"
         android:layout_height="20dp"
+        android:max="3000"
         app:layout_constraintStart_toStartOf="parent"
         tools:layout_editor_absoluteY="125dp" />
 
@@ -101,7 +102,7 @@
     <FrameLayout
         android:id="@+id/line"
         android:layout_width="0dp"
-        android:layout_height="60dp"
+        android:layout_height="80dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view"

@@ -82,6 +82,7 @@
             android:id="@+id/sb1"
             android:layout_width="match_parent"
             android:layout_height="20dp"
+            android:max="300"
             app:layout_constraintStart_toStartOf="parent"
             tools:layout_editor_absoluteY="125dp" />
 
@@ -99,6 +100,8 @@
             android:id="@+id/sb2"
             android:layout_width="match_parent"
             android:layout_height="20dp"
+            android:max="3500"
+            android:min="1500"
             app:layout_constraintStart_toStartOf="parent"
             tools:layout_editor_absoluteY="125dp" />
 
@@ -116,6 +119,8 @@
             android:id="@+id/sb3"
             android:layout_width="match_parent"
             android:layout_height="20dp"
+            android:max="3500"
+            android:min="1500"
             app:layout_constraintStart_toStartOf="parent"
             tools:layout_editor_absoluteY="125dp" />
 
@@ -133,6 +138,8 @@
             android:id="@+id/sb4"
             android:layout_width="match_parent"
             android:layout_height="20dp"
+            android:min="1500"
+            android:max="3500"
             app:layout_constraintStart_toStartOf="parent"
             tools:layout_editor_absoluteY="125dp" />
 
@@ -150,6 +157,8 @@
             android:id="@+id/sb5"
             android:layout_width="match_parent"
             android:layout_height="20dp"
+            android:min="1500"
+            android:max="3500"
             app:layout_constraintStart_toStartOf="parent"
             tools:layout_editor_absoluteY="125dp" />
 
@@ -177,7 +186,7 @@
     <FrameLayout
         android:id="@+id/l1"
         android:layout_width="0dp"
-        android:layout_height="60dp"
+        android:layout_height="80dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view1"
@@ -188,7 +197,7 @@
     <FrameLayout
         android:id="@+id/l2"
         android:layout_width="0dp"
-        android:layout_height="60dp"
+        android:layout_height="80dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view2"
@@ -199,35 +208,35 @@
     <FrameLayout
         android:id="@+id/l3"
         android:layout_width="0dp"
-        android:layout_height="60dp"
+        android:layout_height="80dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view3"
             android:layout_width="3px"
             android:layout_height="220dp"
-            android:background="#FF0000" />
+            android:background="#00FF00" />
     </FrameLayout>
     <FrameLayout
         android:id="@+id/l4"
         android:layout_width="0dp"
-        android:layout_height="60dp"
+        android:layout_height="80dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view4"
             android:layout_width="3px"
             android:layout_height="220dp"
-            android:background="#FF0000" />
+            android:background="#0000FF" />
     </FrameLayout>
     <FrameLayout
         android:id="@+id/l5"
         android:layout_width="0dp"
-        android:layout_height="60dp"
+        android:layout_height="80dp"
         android:background="#000000">
         <ImageView
             android:id="@+id/line_view5"
             android:layout_width="3px"
             android:layout_height="220dp"
-            android:background="#FF0000" />
+            android:background="#FF00FF" />
     </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
