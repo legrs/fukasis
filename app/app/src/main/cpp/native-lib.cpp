@@ -288,10 +288,10 @@ Java_com_example_ssa_CsvActivity_makecsv(
     double t_ref[4];
     double c_ref[4];
     double i_deno[4]; 
-    vector<double> sensit_dat[4];
+    vector<double> sensit_dat[5];
 
-    const int T_MIN = 1400;
-    const int T_MAX = 2400;
+    const int T_MIN = 1800;
+    const int T_MAX = 2800;
 
          // img ----------------------------------------------------------
 
@@ -403,11 +403,13 @@ Java_com_example_ssa_CsvActivity_makecsv(
     buff[256];
 
     int index = 0;
-    string tmp;
+    string tmp = "";
     fgets(buff, sizeof(buff), file);
     fgets(buff, sizeof(buff), file);
     // substitue data to vector
     while(fgets(buff, sizeof(buff), file)!=nullptr){
+        tmp = string(buff);
+        LOGI("%s", tmp.c_str());
         string dat_string[4];
         int size = tmp.size();
         // split
@@ -424,6 +426,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
             // substiture
             sensit_dat[i].push_back(stof(dat_string[i]));
         }
+        sensit_dat[4].push_back(sensit_dat[1][index]+sensit_dat[2][index]+sensit_dat[3][index]);
         index++;
     }
     fclose(file);
@@ -474,7 +477,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
     int y1 = h/2 - width/2 + ofs;
     int y2 = h/2 + width/2 + ofs;
     double pixel[w][3];
-    const double sigma_thres = 3.0;
+    const double sigma_thres = 2.0;
     for(int x=fol; x>0; x--){
         pixel[x][0] = 0;
         pixel[x][1] = 0;
@@ -551,9 +554,8 @@ Java_com_example_ssa_CsvActivity_makecsv(
 
 
         for(int ch=0; ch<3; ch++){
-            pure[ch].push_back(pixel[x][0]/(count[0]));
+            pure[ch].push_back(pixel[x][ch]/(count[ch]));
         }
-
 
 
     }
@@ -561,17 +563,17 @@ Java_com_example_ssa_CsvActivity_makecsv(
     int size = pure[0].size();
 
     // bとrの欠落を埋めて、minをget =======================
-    for(int i=0; i<size; i++){
+    for(int i=1; i<size-1; i++){
         bgr = 0;
             //bayer arrayにより欠落が生じるから
-        if(pure[1][i]==0){
-            pure[1][i] = pure[1][i-1] + (pure[1][i+1]-pure[1][i-1])/2;
-            bgr += pure[1][i];
+        if(pure[0][i]==0){
+            pure[0][i] = pure[0][i-1] + (pure[0][i+1]-pure[0][i-1])/2;
+            bgr += pure[0][i];
         }
-        bgr += pure[2][i];
-        if(pure[3][i]==0){
-            pure[3][i] = pure[3][i-1] + (pure[3][i+1]-pure[3][i-1])/2;
-            bgr += pure[3][i];
+        bgr += pure[1][i];
+        if(pure[2][i]==0){
+            pure[2][i] = pure[2][i-1] + (pure[2][i+1]-pure[2][i-1])/2;
+            bgr += pure[2][i];
         }
 
 
@@ -588,7 +590,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
     }
 
     // wavelength,sensitivity calibration & get max =======================
-    vector<double> calibrated[4];
+    vector<double> calibrated[2];
 
     for(int i=0; i<size; i++){
         // langange interpolation | t -> t_p
@@ -606,38 +608,40 @@ Java_com_example_ssa_CsvActivity_makecsv(
             t_p += c_ref[j]*i_nume/i_deno[j];
         }
 
-        double sensit[3]={0,0,0};
-        int vi=0;
-        while(sensit_dat[0][vi] < t_p){
-            vi++;
+        double sensit[4]={1,1,1,1};
+
+        if(DO_CALIB){
+            int vi=0;
+            while(sensit_dat[0][vi] < t_p){
+                vi++;
+            }
+            // 通り過ぎたら
+
+            // x0 + Δt*(dx/dt)
+            for(int ch=0; ch<4; ch++){
+                sensit[ch] = sensit_dat[ch+1][vi-1] + (t_p-sensit_dat[0][vi])*(sensit_dat[ch+1][vi]-sensit_dat[ch+1][vi-1])/(sensit_dat[0][vi]-sensit_dat[0][vi-1]);
+            }
         }
-        // 通り過ぎたら
 
-        // x0 + Δt*(dx/dt)
-        for(int ch=0; ch<3; ch++){
-            sensit[ch] = sensit_dat[ch+1][vi-1] + (t_p-sensit_dat[0][vi])*(sensit_dat[ch+1][vi]-sensit_dat[ch+1][vi-1])/(sensit_dat[0][vi]-sensit_dat[0][vi-1]);
-        }
+        if(T_MIN < i && i < T_MAX){
+            if(400 < t_p && t_p < 700){
 
-        if(400 < t_p && t_p < 700){
-
-            bgr = 0;
-            for(int c=0; c<3; c++){
-                pure[c][i] -= min[c];
-                if(pure[c][i] <= 0 ){
-                    pure[c][i] = 0;
+                bgr = 0;
+                for(int c=0; c<3; c++){
+                    pure[c][i] -= min[c];
+                    if(pure[c][i] <= 0 ){
+                        pure[c][i] = 0;
+                    }
+                    bgr += pure[c][i];
                 }
-                bgr += pure[c][i];
-            }
-            if(DO_CALIB){
                 bgr /= sensit[3];
+                if(max < bgr){
+                    max = bgr;
+                }
+                calibrated[0].push_back(t_p);
+                calibrated[1].push_back(bgr);
             }
-            if(max < bgr){
-                max = bgr;
-            }
-            calibrated[0].push_back(t_p);
-            calibrated[1].push_back(bgr);
         }
-
 
     }
 

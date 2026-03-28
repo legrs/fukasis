@@ -246,7 +246,7 @@ public class CsvActivity extends AppCompatActivity{
                         ParcelFileDescriptor pfd5 = resolver.openFileDescriptor(uri5, "w");
 
                         if(pfd1 != null && pfd2 != null && pfd3 != null && pfd4 != null && pfd5 != null){
-                            makecsv(pfd1.getFd(), pfd2.getFd(), pfd3.getFd(), pfd4.getFd(), pfd5.getFd(), (int)fol);
+                            Log.d("a",makecsv(pfd1.getFd(), pfd2.getFd(), pfd3.getFd(), pfd4.getFd(), pfd5.getFd(), (int)fol));
 
                             pfd1.close();
                             pfd2.close();

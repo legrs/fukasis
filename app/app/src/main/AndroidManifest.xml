@@ -17,6 +17,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SSA">
         <activity
+            android:name=".ViewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SSA" />
+        <activity
             android:name=".CalibActivity"
             android:exported="false" />
         <activity
@@ -33,10 +37,6 @@
             android:exported="false" />
         <activity
             android:name=".CsActivity"
-            android:exported="false"
-            android:theme="@style/Theme.SSA" />
-        <activity
-            android:name=".ViewActivity"
             android:exported="false"
             android:theme="@style/Theme.SSA" />
         <activity
