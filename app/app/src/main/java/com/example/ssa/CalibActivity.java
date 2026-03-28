@@ -58,6 +58,7 @@ public class CalibActivity extends AppCompatActivity{
     private void changesb(int j, int i){
         tv[j].setText("" + i);
         t[j] = (imgWidth - i);
+        Log.d("a", Integer.toString(fol - t[j]));
         line[j].setX((t[j] +iv1_ofs)*scale);
         line[j].setY(pos[1]-50);
     }

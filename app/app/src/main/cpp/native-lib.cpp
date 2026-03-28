@@ -279,6 +279,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
         jint fd2,
         jint fd3,
         jint fd4,
+        jint fd5,
         jint fol
         ) {
 
@@ -287,8 +288,12 @@ Java_com_example_ssa_CsvActivity_makecsv(
     double t_ref[4];
     double c_ref[4];
     double i_deno[4]; 
+    vector<double> sensit_dat[4];
 
-         // img
+    const int T_MIN = 1400;
+    const int T_MAX = 2400;
+
+         // img ----------------------------------------------------------
 
     // get file size
     struct stat sb;
@@ -307,7 +312,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
 
     char buff[256];
 
-        // calibdata
+        // calibdata ----------------------------------------------------------
     // double closeしないためにduplicate
     int fd2_p = dup(fd2);
     if(fd2_p == -1) return env->NewStringUTF("fd2 dup filed");
@@ -318,6 +323,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
         close(fd2_p);
         return env->NewStringUTF("");
     }
+
 
     if(fgets(buff, sizeof(buff), file)!=nullptr){
         string dat(buff);
@@ -345,7 +351,23 @@ Java_com_example_ssa_CsvActivity_makecsv(
     }
     fclose(file);
 
-        // observation infomation
+    for(int j=0; j<4; j++){
+        i_deno[j] = 1.0;
+        for(int k=0; k<4; k++){
+            if(k != j){
+                i_deno[j] *= (t_ref[j] - t_ref[k]);
+            }
+        }
+    }
+
+    LOGI("t_ref : %f , %f , %f , %f",t_ref[0],t_ref[1],t_ref[2],t_ref[3]);
+    LOGI("c_ref : %f , %f , %f , %f",c_ref[0],c_ref[1],c_ref[2],c_ref[3]);
+
+
+
+
+        // observation infomation --------------------------------------------------------------
+
     string header;
     // double closeしないためにduplicate
     int fd3_p = dup(fd3);
@@ -364,14 +386,51 @@ Java_com_example_ssa_CsvActivity_makecsv(
     }else{
         return env->NewStringUTF("めただだ、ないです");
     }
+    fclose(file);
 
-        // write as csv
+        // sensitivity curve^ --------------------------------------------------------------
 
-    if(dprintf(fd4, "%s\n",header.c_str()) < 0){
-        ss << "dprintf failed" << endl;
+    int fd4_p = dup(fd4);
+    if(fd4_p == -1) return env->NewStringUTF("fd3 dup filed");
+
+    file = fdopen(fd4_p, "r");
+    if(file == nullptr){
+        // とじる！！
+        close(fd4_p);
+        return env->NewStringUTF("fd3_p file null");
     }
-    ss << header << endl;
 
+    buff[256];
+
+    int index = 0;
+    string tmp;
+    fgets(buff, sizeof(buff), file);
+    fgets(buff, sizeof(buff), file);
+    // substitue data to vector
+    while(fgets(buff, sizeof(buff), file)!=nullptr){
+        string dat_string[4];
+        int size = tmp.size();
+        // split
+        int j=0;
+        for(int i=0; i<size; i++){
+            if(tmp[i]==','){
+                j++;
+            }else{
+                dat_string[j].push_back(tmp[i]);
+            }
+        }
+
+        for(int i=0; i<4; i++){
+            // substiture
+            sensit_dat[i].push_back(stof(dat_string[i]));
+        }
+        index++;
+    }
+    fclose(file);
+
+        // write as csv --------------------------------------------------------------
+
+    ss << header << endl;
 
     /*
 
@@ -396,18 +455,24 @@ Java_com_example_ssa_CsvActivity_makecsv(
 
     stringstream spectrum;
 
+    spectrum << header << endl;
+    spectrum << "wavelength/nm,relative intensity(0.0 -- 1.0)" << endl;
+
+    vector<double> pure[3];
+    double min[3] = {65536,65536,65536};
+    double max = 0;
+
+
+    // accumulate 縦 =======================
+
     const int h = img.rows;
     const int w = img.cols;
     const int width = 80;
     const int ofs = 0;
     const bool DO_CLIP = true;
-    
-
-    vector<double> pure[3];
-
+    const bool DO_CALIB = true;
     int y1 = h/2 - width/2 + ofs;
     int y2 = h/2 + width/2 + ofs;
-
     double pixel[w][3];
     const double sigma_thres = 3.0;
     for(int x=fol; x>0; x--){
@@ -484,25 +549,110 @@ Java_com_example_ssa_CsvActivity_makecsv(
             }
         }
 
-        for(int c=0; c<3; c++){
-            pure[c].push_back(pixel[x][0]/(count[0]));
-        }
-    }
 
-    for(int j=0; j<4; j++){
-        i_deno[j] = 1.0;
-        for(int k=0; k<4; k++){
-            if(k != j){
-                i_deno[j] *= (t_ref[j] - t_ref[k]);
+        for(int ch=0; ch<3; ch++){
+            pure[ch].push_back(pixel[x][0]/(count[0]));
+        }
+
+
+
+    }
+    double t,t_p,bgr;
+    int size = pure[0].size();
+
+    // bとrの欠落を埋めて、minをget =======================
+    for(int i=0; i<size; i++){
+        bgr = 0;
+            //bayer arrayにより欠落が生じるから
+        if(pure[1][i]==0){
+            pure[1][i] = pure[1][i-1] + (pure[1][i+1]-pure[1][i-1])/2;
+            bgr += pure[1][i];
+        }
+        bgr += pure[2][i];
+        if(pure[3][i]==0){
+            pure[3][i] = pure[3][i-1] + (pure[3][i+1]-pure[3][i-1])/2;
+            bgr += pure[3][i];
+        }
+
+
+        if(T_MIN < i && i < T_MAX){
+            if(max < bgr){
+                max = bgr;
+            }
+            for(int c=0; c<3; c++){
+                if( pure[c][i] < min[c]){
+                    min[c] = pure[c][i];
+                }
             }
         }
     }
 
-    spectrum << "hoge" << endl;
+    // wavelength,sensitivity calibration & get max =======================
+    vector<double> calibrated[4];
 
-    dprintf(fd4, "%s", spectrum.str().c_str());
+    for(int i=0; i<size; i++){
+        // langange interpolation | t -> t_p
+        // cubic interpolation
+        t = i;
+        //LOGI("%s",to_string(t).c_str());
+        t_p = 0;
+        for(int j=0; j<4; j++){
+            double i_nume = 1.0;
+            for(int k=0; k<4; k++){
+                if(k != j){
+                    i_nume *= (t - t_ref[k]);
+                }
+            }
+            t_p += c_ref[j]*i_nume/i_deno[j];
+        }
 
-    if(fsync(fd4) == -1){
+        double sensit[3]={0,0,0};
+        int vi=0;
+        while(sensit_dat[0][vi] < t_p){
+            vi++;
+        }
+        // 通り過ぎたら
+
+        // x0 + Δt*(dx/dt)
+        for(int ch=0; ch<3; ch++){
+            sensit[ch] = sensit_dat[ch+1][vi-1] + (t_p-sensit_dat[0][vi])*(sensit_dat[ch+1][vi]-sensit_dat[ch+1][vi-1])/(sensit_dat[0][vi]-sensit_dat[0][vi-1]);
+        }
+
+        if(400 < t_p && t_p < 700){
+
+            bgr = 0;
+            for(int c=0; c<3; c++){
+                pure[c][i] -= min[c];
+                if(pure[c][i] <= 0 ){
+                    pure[c][i] = 0;
+                }
+                bgr += pure[c][i];
+            }
+            if(DO_CALIB){
+                bgr /= sensit[3];
+            }
+            if(max < bgr){
+                max = bgr;
+            }
+            calibrated[0].push_back(t_p);
+            calibrated[1].push_back(bgr);
+        }
+
+
+    }
+
+    // export ===========================
+    size = calibrated[0].size();
+
+    for(int i=0; i<size; i++){
+        spectrum 
+            << calibrated[0][i] << ","
+            << calibrated[1][i]/max << "\n";
+    }
+
+    dprintf(fd5, "%s", spectrum.str().c_str());
+
+    if(fsync(fd5) == -1){
         ss << "failed to sync fd";
     }
 

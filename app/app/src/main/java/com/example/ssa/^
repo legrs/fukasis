@@ -1,7 +1,4 @@
 package com.example.ssa;
-import androidx.activity.result.ActivityResultLauncher;
-import android.content.Intent;
-import androidx.activity.result.contract.ActivityResultContracts;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.graphics.Matrix;
@@ -59,7 +56,6 @@ public class CsvActivity extends AppCompatActivity{
 
         // UIs
         Button openBtn = binding.open;
-        Button opencsvBtn = binding.opencsv;
         Button exportBtn = binding.export;
         SeekBar sb1 = binding.sb1;
         TextView t1 = binding.t1;
@@ -119,20 +115,6 @@ public class CsvActivity extends AppCompatActivity{
                     iv.getLocationOnScreen(pos);
                 }
 
-            }
-        });
-        opencsvBtn.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                
-                // MIMEタイプの設定（AndroidはCSVの判定が端末によってブレるため、少し広めに指定するのがコツです）
-                intent.setType("*/*");
-                String[] mimeTypes = {"text/csv", "text/comma-separated-values", "application/csv"};
-                intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
-
-                // 用意しておいたランチャーを使って画面を起動
-                csvPickerLauncher.launch(intent);
             }
         });
         exportBtn.setOnClickListener(new View.OnClickListener(){
@@ -230,11 +212,32 @@ public class CsvActivity extends AppCompatActivity{
                     }
 
                 }
+                    // sensitivity curve
+
+                filepath = "Documents/SSA/csv/sensit/";
+                filename = "sensit.csv";
+                selectionArgs = new String[]{filename, filepath};
+                try(Cursor cursor = resolver.query(
+                            collection,
+                            new String[]{MediaStore.MediaColumns._ID},
+                            selection,
+                            selectionArgs,
+                            null)){
+                    if(cursor != null && cursor.moveToFirst()){
+                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
+                        // exsists
+                        uri4 = ContentUris.withAppendedId(collection, id);
+                        Log.d("a","ありましたよっ！");
+                    }else{
+                        Log.d("a","(metadataが)ないです");
+                    }
+
+                }
 
                     // spectrum csv file
 
                 ContentValues values = new ContentValues();
-                uri5 = Cam.getUri(activity,"Documents/SSA/csv/spectrum/", path_et1.getText().toString() + ".csv", "text/csv",resolver , values);
+                Uri uri5 = Cam.getUri(activity,"Documents/SSA/csv/spectrum/", path_et1.getText().toString() + ".csv", "text/csv",resolver , values);
 
 
                 try{
@@ -298,17 +301,6 @@ public class CsvActivity extends AppCompatActivity{
     protected void onPause(){
         super.onPause();
     }
-    private final ActivityResultLauncher<Intent> csvPickerLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
-            result -> {
-                if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                    Uri uri = result.getData().getData();
-                    if (uri != null) {
-                        uri4 = uri;
-                    }
-                }
-            }
-    );
 
 
     public native String makecsv(int fd1, int fd2, int fd3, int fd4, int fd5, int fol);
