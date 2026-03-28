@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2026 Tsuyoshi Kobayashi(legrs4073)
 package com.example.ssa;
 import android.app.Activity;
 import android.content.ContentValues;
@@ -55,7 +57,7 @@ public class DarkActivity extends AppCompatActivity{
                 Uri collection = MediaStore.Files.getContentUri("external");
                 Uri uri1 = null;
                 Uri uri2 = null;
-                String filepath = "Documents/SSA/imgs/" + path_et1.getText().toString() + "/";
+                String filepath = "Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/";
                 String filename = "stacked.tif";
                 String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
                 String[] selectionArgs = new String[]{filename, filepath};
@@ -78,7 +80,7 @@ public class DarkActivity extends AppCompatActivity{
                 }
 
 
-                filepath = "Documents/SSA/imgs/" + path_et2.getText().toString() + "/";
+                filepath = "Documents/FUKASIS-app/imgs/" + path_et2.getText().toString() + "/";
                 selectionArgs = new String[]{filename, filepath};
 
                 try(Cursor cursor = resolver.query(
@@ -100,7 +102,7 @@ public class DarkActivity extends AppCompatActivity{
 
 
                 ContentValues values = new ContentValues();
-                Uri uri3 = Cam.getUri(activity,"Documents/SSA/imgs/" + path_et1.getText().toString() + "/", "darked.tif", "image/tiff",resolver , values);
+                Uri uri3 = Cam.getUri(activity,"Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/", "darked.tif", "image/tiff",resolver , values);
 
 
                 try{

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2026 Tsuyoshi Kobayashi(legrs4073)
 package com.example.ssa;
 import androidx.activity.result.ActivityResultLauncher;
 import android.content.Intent;
@@ -76,7 +78,7 @@ public class CsvActivity extends AppCompatActivity{
                 Uri collection = MediaStore.Files.getContentUri("external");
                 Uri uri = null;
 
-                String filepath = "Documents/SSA/imgs/" + path_et1.getText().toString() + "/";
+                String filepath = "Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/";
                 String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
 
                     //  jpg image ( for preview )
@@ -144,7 +146,7 @@ public class CsvActivity extends AppCompatActivity{
                 Uri uri3 = null;
                 Uri uri5 = null;
 
-                String filepath = "Documents/SSA/imgs/" + path_et1.getText().toString() + "/";
+                String filepath = "Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/";
                 String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
                     //  tiff image
 
@@ -189,7 +191,7 @@ public class CsvActivity extends AppCompatActivity{
 
                     // calibration data
 
-                filepath = "Documents/SSA/csv/calibdata/";
+                filepath = "Documents/FUKASIS-app/csv/calibdata/";
                 filename = path_et2.getText().toString() + ".csv";
                 selectionArgs = new String[]{filename, filepath};
                 try(Cursor cursor = resolver.query(
@@ -211,7 +213,7 @@ public class CsvActivity extends AppCompatActivity{
 
                     // observation metadata
 
-                filepath = "Documents/SSA/imgs/" + path_et1.getText().toString() + "/";
+                filepath = "Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/";
                 filename = "metadata.csv";
                 selectionArgs = new String[]{filename, filepath};
                 try(Cursor cursor = resolver.query(
@@ -234,7 +236,7 @@ public class CsvActivity extends AppCompatActivity{
                     // spectrum csv file
 
                 ContentValues values = new ContentValues();
-                uri5 = Cam.getUri(activity,"Documents/SSA/csv/spectrum/", path_et1.getText().toString() + ".csv", "text/csv",resolver , values);
+                uri5 = Cam.getUri(activity,"Documents/FUKASIS-app/csv/spectrum/", path_et1.getText().toString() + ".csv", "text/csv",resolver , values);
 
 
                 try{

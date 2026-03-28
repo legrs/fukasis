@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2026 Tsuyoshi Kobayashi(legrs4073)
 #include <jni.h>
 #include <string>
 #include <opencv2/opencv.hpp>

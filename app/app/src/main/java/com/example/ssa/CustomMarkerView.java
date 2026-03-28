@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2026 Tsuyoshi Kobayashi(legrs4073)
 package com.example.ssa;
 
 import android.content.Context;

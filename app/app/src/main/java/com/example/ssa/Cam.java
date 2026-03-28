@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright © 2026 Tsuyoshi Kobayashi(legrs4073)
 package com.example.ssa;
 import java.util.Date;
 import java.text.SimpleDateFormat;
@@ -347,7 +349,7 @@ public class Cam{
             ContentResolver resolver = activity.getContentResolver();
 
             ContentValues valuesCsv = new ContentValues();
-            Uri uriCsv = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/", "metadata.csv", "text/csv",resolver , valuesCsv);
+            Uri uriCsv = getUri(activity,"Documents/FUKASIS-app/imgs/" + sequenceName + "/", "metadata.csv", "text/csv",resolver , valuesCsv);
 
             //byte[] tiffBytes = processImg(file.getAbsolutePath());
 
@@ -358,14 +360,14 @@ public class Cam{
             // save tiff
             ContentValues valuesTiff = new ContentValues();
             ContentValues valuesPng = new ContentValues();
-            Uri uriTiff = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/", "stacked.tif", "image/tiff",resolver , valuesTiff);
-            Uri uriPng = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/", "stacked.jpg", "image/jpeg",resolver , valuesPng);
+            Uri uriTiff = getUri(activity,"Documents/FUKASIS-app/imgs/" + sequenceName + "/", "stacked.tif", "image/tiff",resolver , valuesTiff);
+            Uri uriPng = getUri(activity,"Documents/FUKASIS-app/imgs/" + sequenceName + "/", "stacked.jpg", "image/jpeg",resolver , valuesPng);
 
             // save tiff
             //ContentValues values = new ContentValues();
             //values.put(MediaStore.MediaColumns.DISPLAY_NAME, "stacked.tif");
             //values.put(MediaStore.MediaColumns.MIME_TYPE, "image/tiff");
-            //values.put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/SSA/imgs/" + sequenceName);
+            //values.put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/FUKASIS-app/imgs/" + sequenceName);
 
             //Uri uri = activity.getContentResolver().insert(MediaStore.Files.getContentUri("external"), values);
 
@@ -417,7 +419,7 @@ public class Cam{
             values.put(MediaStore.MediaColumns.DISPLAY_NAME, "CSV_" + System.currentTimeMillis() + ".csv");
             values.put(MediaStore.MediaColumns.MIME_TYPE, "text/csv");
             values.put(MediaStore.MediaColumns.IS_PENDING, 1);
-            values.put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/SSA/imgs/" + sequenceName + "/");
+            values.put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/FUKASIS-app/imgs/" + sequenceName + "/");
 
             resolver = activity.getContentResolver();
             Uri uri = resolver.insert(MediaStore.Files.getContentUri("external"), values);
@@ -536,7 +538,7 @@ public class Cam{
     private void saveDNG(Image img, TotalCaptureResult result){
         ContentValues values = new ContentValues();
         ContentResolver resolver = activity.getContentResolver();
-        Uri uri = getUri(activity,"Documents/SSA/imgs/" + sequenceName + "/" , currentCount + ".dng" , "image/x-adobe-dng", resolver , values);
+        Uri uri = getUri(activity,"Documents/FUKASIS-app/imgs/" + sequenceName + "/" , currentCount + ".dng" , "image/x-adobe-dng", resolver , values);
         DngCreator dngCreator = new DngCreator(camCharacteristics, result);
         //ContentResolver resolver = activity.getContentResolver();
         //Uri collection = MediaStore.Files.getContentUri("external");
@@ -560,7 +562,7 @@ public class Cam{
         //    ContentValues values = new ContentValues();
         //    values.put(MediaStore.MediaColumns.DISPLAY_NAME, currentCount + ".dng");
         //    values.put(MediaStore.MediaColumns.MIME_TYPE, "image/x-adobe-dng");
-        //    values.put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/SSA/imgs/" + sequenceName);
+        //    values.put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/FUKASIS-app/imgs/" + sequenceName);
         //    uri = activity.getContentResolver().insert(MediaStore.Files.getContentUri("external"), values);
         //}
 
