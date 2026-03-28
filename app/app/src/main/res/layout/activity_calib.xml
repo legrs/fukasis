@@ -115,7 +115,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:min="1800"
-                android:max="2800"
+                android:max="2900"
                 android:layout_weight="0.8"
                 app:layout_constraintStart_toStartOf="parent"/>
             <EditText
@@ -144,7 +144,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:min="1800"
-                android:max="2800"
+                android:max="2900"
                 android:layout_weight="0.8"
                 app:layout_constraintStart_toStartOf="parent"/>
             <EditText
@@ -173,7 +173,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:min="1800"
-                android:max="2800"
+                android:max="2900"
                 android:layout_weight="0.8"
                 app:layout_constraintStart_toStartOf="parent"/>
             <EditText
@@ -202,7 +202,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:min="1800"
-                android:max="2800"
+                android:max="2900"
                 android:layout_weight="0.8"
                 app:layout_constraintStart_toStartOf="parent"/>
             <EditText

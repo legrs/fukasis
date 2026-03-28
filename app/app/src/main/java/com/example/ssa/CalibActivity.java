@@ -39,7 +39,7 @@ public class CalibActivity extends AppCompatActivity{
     private Activity activity = this;
 
     int[] pos = {0,0};
-    float scale = 0.9F;
+    float scale = 0.8F;
     int iv1_ofs = -1200;
     int iv2_ofs = 350;
     int imgWidth ;

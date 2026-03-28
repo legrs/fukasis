@@ -477,7 +477,7 @@ Java_com_example_ssa_CsvActivity_makecsv(
     int y1 = h/2 - width/2 + ofs;
     int y2 = h/2 + width/2 + ofs;
     double pixel[w][3];
-    const double sigma_thres = 2.0;
+    const double sigma_thres = 3.0;
     for(int x=fol; x>0; x--){
         pixel[x][0] = 0;
         pixel[x][1] = 0;

@@ -62,6 +62,15 @@ public class ViewActivity extends AppCompatActivity {
 
         lineChart = binding.lineChart;
 
+        // 先ほど作ったクラスをインスタンス化
+        CustomMarkerView marker = new CustomMarkerView(this, R.layout.custom_marker_view);
+        
+        // グラフの外枠に合わせてマーカーの描画を調整する設定
+        marker.setChartView(lineChart);
+        
+        // グラフにマーカーをセット！
+        lineChart.setMarker(marker);
+
         Button openBtn = binding.open;
         openBtn.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
