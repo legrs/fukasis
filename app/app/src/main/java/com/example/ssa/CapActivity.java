@@ -55,8 +55,8 @@ public class CapActivity extends AppCompatActivity{
 
     private SoundPool soundPool;
     int alarmSound;
-    private long expo = 200000000; // ns
-    private int iso = 800; // iso
+    private long expo = 100000000; // ns
+    private int iso = 3200; // iso
     private float fd = 1; // m?
     private int zoom = 0; //0:noZoom 1:focusing 2:pointing
     private boolean isLongExpo = false;

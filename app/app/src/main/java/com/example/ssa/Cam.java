@@ -229,7 +229,7 @@ public class Cam{
             long minExpo = camCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE).getLower();
             Log.d("a", "max expose time : " + maxExpo + "min expose time : " + minExpo);
                     capRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
-                    capRequestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, 80000000L);
+                    capRequestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, 100000000L);
                     capRequestBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, 3200);
                     capRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
                     capRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, -1.0f);
