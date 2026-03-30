@@ -42,8 +42,8 @@
 
 <img src="./docs/imgs/sectional.png" width="50%"/>
 <br>
-<img src="./docs/imgs/visual1.jpg" width="40%"/>
-<img src="./docs/imgs/visual2.jpg" width="40%"/>
+
+<img src="./docs/imgs/visual1.jpg" width="40%"/><img src="./docs/imgs/visual2.jpg" width="40%"/>
 
 <br><br><br><br>
 
