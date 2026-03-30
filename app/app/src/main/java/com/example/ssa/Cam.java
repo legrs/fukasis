@@ -344,6 +344,7 @@ public class Cam{
         if(sequrnceLength <= currentCount){
 
             // end of capture sequence
+            soundPool.play(alarmSound, 1.0f, 1.0f, 0, 1, 1);
             // save csv & tiff
             //File file = new File(activity.getExternalFilesDir(null), "metadata.csv");
             ContentResolver resolver = activity.getContentResolver();
