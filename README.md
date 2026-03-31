@@ -11,14 +11,14 @@
 
 **天体用低分散分光システム FUKASIS** は、安価かつ手軽に運用可能な、オープンソースの天体観測用の簡易分光システムです。
 
-<table style="border:1px solid #fff; font-weight:900; font-size:0.8rem;">
-  <tr style="border:1px solid #fff;">
-    <td align="center" style="border:1px solid #fff;">
+<table style="border:1px solid #00000000; font-weight:900; font-size:0.8rem;">
+  <tr style="border:1px solid #00000000;">
+    <td align="center" style="border:1px solid #00000000;">
       <img src="./docs/imgs/visual0.jpg" width="100%" alt="画像1">
       <br>
         <p>FUKASISでM42をスリットレス分光している様子。2026-02-17</p>
     </td>
-    <td align="center" style="border:1px solid #fff;">
+    <td align="center" style="border:1px solid #00000000;">
       <img src="./docs/imgs/spectrum_sun.png" width="100%" alt="画像2">
       <br>
         <p>FUKASISによって得られた太陽のスペクトル。多数のfraunhofer線が確認できる。D線も分解している。2026-02-16</p>
