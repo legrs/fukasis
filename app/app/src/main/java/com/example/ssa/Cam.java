@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright © 2026 Tsuyoshi Kobayashi(legrs4073)
 package com.example.ssa;
-import java.util.Date;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
 import android.content.ContentUris;
 import android.graphics.Matrix;
 import android.graphics.RectF;
@@ -377,7 +376,7 @@ public class Cam{
                         // csv(metadata)
                     try(OutputStream output = activity.getContentResolver().openOutputStream(uriCsv)){
 
-                        String metadata = String.format("%s, @JST %s,  ISO %d, fd %f, %d msec * %d ",sequenceName, (new SimpleDateFormat("yyyy MM/dd HH:mm:ss")).format(new Date()), iso, fd, expo, sequrnceLength);
+                        String metadata = String.format("%s, %s,  ISO %d, fd %f, %d msec * %d ",sequenceName, Instant.now().toString(), iso, fd, expo, sequrnceLength);
 
                         output.write(metadata.getBytes("UTF-8"));
 
