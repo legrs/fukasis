@@ -1,42 +1,33 @@
-# 日本天文学会第28回ジュニアセッション ポスター発表をご覧いただいた皆様へ
-本repositoryにアクセスいただき，誠にありがとうございます．本研究の成果やアプリケーションにご興味をお持ちいただけたことを大変嬉しく思います．
+米 時間がないので簡易的な説明になってしまいます．より詳細に知りたい方は twitter@legrs4073まで
 
-## 現在の開発状況とお詫び
-現在，本repositoryで公開しているアプリケーションは開発途中のものであり，ポスターにてご紹介した機能の一部が未実装となっております．
+全体の構成としては
 
-本来であれば，完全な状態で公開し，インストール可能なファイル（apk等）までご用意すべきところですが，諸般の事情により開発およびreleaseが遅れております．楽しみにしていただいた皆様には，深くお詫び申し上げます．
+それぞれのactivityのJavaがあり，
+そこに加えて撮影専用の`Cam.java`，
+opencvでの処理専用の`native-lib.cpp`．
 
-**現状**
-- [x] 撮影UI
-- [x] 撮影システム
-- [x] ダーク減算・波長感度校正 UI
-- [ ] ダーク減算・波長感度校正 処理部分
+という形になっています．
 
+- Javaでのファイルの読み書きはMediastoreを使っていて，ユーザーから見える位置に全てのデータを置いています．
+- c++側でファイル入出力するときは，file descriptorをJavaから渡しています．
+- Cam.javaでは，撮影が終わるたびにImage.Planeの.getBuffer()をc++に渡して，env->GetDirectBufferAddress(buff)してポインタを取得してMatをつくっています．
+    それを加算し，capture sequenceが終わると枚数で除算してスタックしています．\
+    スタックした画像は`CV_32FC1`のtiffで保存しています．
 
-## 今後の予定
-開発体制が整い次第，順次アップデートを予定しております．
-もしよろしければ，Watchをしていだだければ，更新の情報が得られて便利かと思います．
+---
 
-ご質問や詳細な仕様に関するお問い合わせは，IssueもしくはTwitterの@legrs4073または@fks_geoscienceまでお気軽にお寄せください．
+画像処理について
 
+最終的なスペクトル出力(CSV画面での処理)は，
+1. スペクトルと直交方向に，一定の幅(makecsv関数のwidth変数)でpixelの値を見て，平均と標準偏差を計算
+1. もういちどスペクトルと直交方向に一定の幅でpixelの値を見て，偏差が標準偏差を上回っていなければ加算して平均をとる(sigma-clippingというのでしょうか)
+1. 上をスペクトル方向の全pixelで実行(走査)．これで得られる，画像の幅次元のvectorが`pure[channel]`です．channelは0,1,2をとり，そのままb,g,rチャンネルを表します
+1. これで得た値は，channel=0,2(bとr)で欠落が発生する(bayer arrayのせい)ので，そこは一次補間します．
+1. 各channelの最小値と最大値を出します．各channelで最小値で減算します(最小値が0になります．)
+1. 「波長校正ようデータ」の値を使って，Lagrange補間で，位置を波長に変換します．
+1. 400 -- 700 nmの範囲で，感度データの値(一次近似)で除算，最大値が1になるよう定数倍して終了
 
-
-# simple-spectrostope-app
-source code of Android app for Fukashi Compact Simple Spectroscope
-このアプリケーションは開発中です．現在撮影機能のみ完成しています．
-
-## About simple-spectroscope
-Galaxy S22を検出器・計算機とした分光器のシステムです．いづれオープンにします．
-以下のURLには分光器本体の設計などをuploadする予定です．
-
-https://drive.google.com/drive/folders/1q-Xi66r9kKZ9j8fXLy9CvfW7w3_RXvYZ?usp=drive_link
-
-## About this repository
-とりあえずAndroidStudioのProjectのdirectoryをそのままuploadしました．buildにはc++のopencvが必要です
+となっています
 
 
-```
-sdk.dir=Android/Sdkのパス
-org.gradle.java.home=jbrのパス
-opencv.dir=このrepositoryをcloneしたパス/app/app/src/main/sdk/native/jni
-```
+
