@@ -55,6 +55,7 @@ public class CapActivity extends AppCompatActivity{
 
     private SoundPool soundPool;
     int alarmSound;
+    int shatterSound;
     private long expo = 100000000; // ns
     private int iso = 3200; // iso
     private float fd = 1; // m?
@@ -75,8 +76,6 @@ public class CapActivity extends AppCompatActivity{
 
     private Cam cam;
 
-
-    //@Override
     public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults){
         //super.onRequestPermissionResult(requestCode, permissions, grantResults);
         if(requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
@@ -132,10 +131,14 @@ public class CapActivity extends AppCompatActivity{
         });
         capBtn.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
+
+
                 int qty = Integer.parseInt(qtyText.getText().toString());
                 Log.d("a",String.format("start capture %d ms, %d, %f, %d枚,name:%s",(int)(expo/1000000L),iso,fd,qty,nameText.getText().toString()));
                 cam.startCaptureSession(expo, iso , fd, qty, nameText.getText().toString(), indicator);
                 Log.d("BUTTON", "start capture session！");
+
+
             }
         });
         zoomFF.setOnClickListener(new View.OnClickListener(){
@@ -303,9 +306,11 @@ public class CapActivity extends AppCompatActivity{
         AudioAttributes audioAttr = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
         soundPool = new SoundPool.Builder().setAudioAttributes(audioAttr).setMaxStreams(2).build();
         alarmSound = soundPool.load(this, R.raw.technoalarm, 1);
+        shatterSound = soundPool.load(this, R.raw.shatter, 1);
+
 
         // cam object
-        cam = new Cam(this, camId,soundPool,alarmSound, tv1, tv2);
+        cam = new Cam(this, camId,soundPool,alarmSound, shatterSound, tv1, tv2);
 
 
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
@@ -319,6 +324,8 @@ public class CapActivity extends AppCompatActivity{
         
 
     }
+
+
     @Override
     protected void onResume(){
         super.onResume();

@@ -60,6 +60,7 @@ public class Cam{
     private CaptureRequest.Builder capSequenceBuilder;
     private SoundPool soundPool;
     int alarmSound;
+    int shatterSound;
     private String camId = "0";
     private int expo,iso;
     private float fd;
@@ -92,18 +93,20 @@ public class Cam{
     private int currentCount = 0;
 
     // constructor
-    public Cam(Activity activity, String camId, SoundPool soundPool, int alarmSound){
+    public Cam(Activity activity, String camId, SoundPool soundPool, int alarmSound, int shatterSound){
         this.activity = activity;
         this.camId = camId;
         this.soundPool = soundPool;
         this.alarmSound = alarmSound;
+        this.shatterSound = shatterSound;
         this.doPreview = false;
     }
-    public Cam(Activity activity, String camId, SoundPool soundPool, int alarmSound, TextureView tv1, TextureView tv2){
+    public Cam(Activity activity, String camId, SoundPool soundPool, int alarmSound, int shatterSound, TextureView tv1, TextureView tv2){
         this.activity = activity;
         this.camId = camId;
         this.soundPool = soundPool;
         this.alarmSound = alarmSound;
+        this.shatterSound = shatterSound;
         this.tv1 = tv1;
         this.tv2 = tv2;
         this.doPreview = true;
@@ -488,16 +491,16 @@ public class Cam{
     };
     private final ImageReader.OnImageAvailableListener onRawImageAvailableListener = new ImageReader.OnImageAvailableListener(){
         @Override
-        public void onImageAvailable(ImageReader reader){
+        public void onImageAvailable(ImageReader reader){ //?キャプチャ？
             Log.v("a", "img available");
             Image img = null;
 
-            img = reader.acquireNextImage();
+            img = reader.acquireNextImage();　
 
             if(lastCapResult != null){
                 Log.d("a","end capture No." + currentCount);
                 // left vol. right vol. priority loop speed
-                soundPool.play(alarmSound, 1.0f, 1.0f, 0, 0, 1);
+                soundPool.play(shatterSound, 1.0f, 1.0f, 0, 0, 1);
 
                 saveDNG(img, lastCapResult);
                 Image.Plane plane = img.getPlanes()[0];
