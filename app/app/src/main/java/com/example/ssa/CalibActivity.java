@@ -106,9 +106,10 @@ public class CalibActivity extends AppCompatActivity{
 
                 String filepath = "Documents/SSA/imgs/" + path_et1.getText().toString() + "/";
                 String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
+                // !検索機能に問題がある可能性
+                //  jpg image ( for preview )
 
-                    //  jpg image ( for preview )
-                
+                //* ファイル名を指定
                 String filename = "stacked.jpg";
                 String[] selectionArgs = new String[]{filename, filepath};
 
@@ -118,13 +119,19 @@ public class CalibActivity extends AppCompatActivity{
                             selection,
                             selectionArgs,
                             null)){
+                    //* */ filenameをlog
+                    Log.d("a", "filename: " + filename);
+                    
                     if(cursor != null && cursor.moveToFirst()){
                         long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
                         // exsists
                         uri = ContentUris.withAppendedId(collection, id);
                         Log.d("a","ありましたよっ！");
                     }else{
+
                         Log.d("a","な、ないです…");
+                        Log.d("a","uri = " + uri);
+                        Log.d("a","filepath = " + filepath);
                     }
 
                 }
