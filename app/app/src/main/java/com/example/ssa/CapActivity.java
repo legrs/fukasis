@@ -4,6 +4,7 @@ package com.example.ssa;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.AppCompatImageView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.Manifest;
@@ -25,6 +26,7 @@ import android.widget.TextView;
 import android.widget.Switch;
 import android.widget.FrameLayout;
 import android.widget.CompoundButton;
+import android.widget.Toast;
 
 import com.example.ssa.databinding.ActivityCapBinding;
 import android.content.Context;
@@ -62,6 +64,7 @@ public class CapActivity extends AppCompatActivity{
     private int zoom = 0; //0:noZoom 1:focusing 2:pointing
     private boolean isLongExpo = false;
     private boolean isLine = true;
+    private boolean isFocusLocked = false;
 
     private TextureView tv1;
     private TextureView tv2;
@@ -106,6 +109,11 @@ public class CapActivity extends AppCompatActivity{
         qtyText = binding.qtyText;
         TextView focusTxt = binding.focusTxt;
         SeekBar focusBar = binding.focusBar;
+        //todo 機能追加
+        AppCompatImageView focusLock = binding.focusLock;
+        
+
+
         SeekBar lineBar = binding.lineBar;
         FrameLayout line = binding.line;
         TextView isoTxt = binding.isoTxt;
@@ -194,6 +202,26 @@ public class CapActivity extends AppCompatActivity{
             public void onStopTrackingTouch(SeekBar seekBar) {
             }
         });
+
+        focusLock.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isFocusLocked = !isFocusLocked;
+
+                if (isFocusLocked) {
+                    focusBar.setEnabled(false);
+                    focusLock.setImageResource(R.drawable.ic_lock);
+                    focusLock.setAlpha(0.5f);
+                    Toast.makeText(CapActivity.this, "Focus bar : Locked", Toast.LENGTH_SHORT).show();
+                } else {
+                    focusBar.setEnabled(true);
+                    focusLock.setImageResource(R.drawable.ic_unlock);
+                    focusLock.setAlpha(1.0f);
+                    Toast.makeText(CapActivity.this, "Focus bar : Unlocked", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
         isoBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {

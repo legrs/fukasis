@@ -88,6 +88,8 @@ public class Cam{
     private boolean doPreview;
     private boolean isCapturing = false;
 
+    private boolean focus_lock = false;
+    
     private int sequrnceLength = 1;
     private String sequenceName = "test";
     private int currentCount = 0;
@@ -495,7 +497,7 @@ public class Cam{
             Log.v("a", "img available");
             Image img = null;
 
-            img = reader.acquireNextImage();　
+            img = reader.acquireNextImage();
 
             if(lastCapResult != null){
                 Log.d("a","end capture No." + currentCount);

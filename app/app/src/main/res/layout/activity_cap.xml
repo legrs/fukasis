@@ -55,20 +55,40 @@
                 android:id="@+id/focus_txt"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="" />
+                android:text="Focus" />
 
-            <SeekBar
-                android:id="@+id/focus_bar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="0"
-                android:min="-300" />
+     <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:padding="8dp">
 
+    <SeekBar
+        android:id="@+id/focus_bar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:max="0"
+        android:min="-300" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/focus_lock"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="4dp"
+        android:src="@drawable/ic_unlock" />
+
+</LinearLayout>
             <TextView
                 android:id="@+id/iso_txt"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="iso:3200" />
+                android:text="ISO:3200" />
 
             <SeekBar
                 android:id="@+id/iso_bar"
@@ -77,6 +97,16 @@
                 android:max="15"
                 android:min="1" />
 
+
+            <Button
+                android:id="@+id/btn_plus_one"
+                android:layout_width="50px"
+                android:layout_height="50px"
+                android:text="+1"
+                android:textSize="50px"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#FF4081"
+                android:textAllCaps="false" />
             <TextView
                 android:id="@+id/expo_txt"
                 android:layout_width="wrap_content"
