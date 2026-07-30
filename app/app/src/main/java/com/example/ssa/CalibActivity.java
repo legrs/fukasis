@@ -104,7 +104,7 @@ public class CalibActivity extends AppCompatActivity{
                 Uri collection = MediaStore.Files.getContentUri("external");
                 Uri uri = null;
 
-                String filepath = "Documents/SSA/imgs/" + path_et1.getText().toString() + "/";
+                String filepath = "Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/";
                 String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
                 // !検索機能に問題がある可能性
                 //  jpg image ( for preview )
@@ -169,7 +169,7 @@ public class CalibActivity extends AppCompatActivity{
                 ContentResolver resolver = activity.getContentResolver();
 
                 ContentValues valuesCsv = new ContentValues();
-                Uri uriCsv = Cam.getUri(activity,"Documents/SSA/csv/calibdata/", path_et2.getText().toString() + ".csv", "text/csv",resolver , valuesCsv);
+                Uri uriCsv = Cam.getUri(activity,"Documents/FUKASIS-app/csv/calibdata/", path_et2.getText().toString() + ".csv", "text/csv",resolver , valuesCsv);
 
                 if(uriCsv != null){
                     try(OutputStream output = activity.getContentResolver().openOutputStream(uriCsv)){
