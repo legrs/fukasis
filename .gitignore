@@ -12,3 +12,4 @@ app/*.jks
 app/*.keystore
 
 app/app/release/
+.vscode/
