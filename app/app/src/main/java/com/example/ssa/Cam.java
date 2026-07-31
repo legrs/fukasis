@@ -96,7 +96,7 @@ public class Cam {
 
     private boolean focus_lock = false;
 
-    private int sequrnceLength = 1;
+    private int sequenceLength = 1;
     private String sequenceName = "test";
     private int currentCount = 0;
 
@@ -342,7 +342,7 @@ public class Cam {
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
-        sequrnceLength = qty;
+        sequenceLength = qty;
         sequenceName = name;
         prepare(maxW, maxH);
         this.expo = (int) (expo / 1000000L);
@@ -375,7 +375,7 @@ public class Cam {
     }
 
     private void capture() {
-        if (sequrnceLength <= currentCount) {
+        if (sequenceLength <= currentCount) {
 
             // end of capture sequence
             soundPool.play(alarmSound, 1.0f, 1.0f, 0, 1, 1);
@@ -418,7 +418,7 @@ public class Cam {
                     try (OutputStream output = activity.getContentResolver().openOutputStream(uriCsv)) {
 
                         String metadata = String.format("%s, %s,  ISO %d, fd %f, %d msec * %d ", sequenceName,
-                                Instant.now().toString(), iso, fd, expo, sequrnceLength);
+                                Instant.now().toString(), iso, fd, expo, sequenceLength);
 
                         output.write(metadata.getBytes("UTF-8"));
 
@@ -612,7 +612,7 @@ public class Cam {
                     @Override
                     public void run() {
                         String message = String.format("Capturing…\n%s, \n%d ms, %d, %f\n%d/%d done", sequenceName,
-                                expo, iso, fd, currentCount, sequrnceLength);
+                                expo, iso, fd, currentCount, sequenceLength);
                         setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
                     }
                 });
