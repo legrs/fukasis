@@ -6,6 +6,11 @@
     android:layout_height="match_parent"
     tools:context=".CapActivity">
 
+    <!--4072,3052-->
+    <!--2036,1526-->
+
+
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -17,6 +22,7 @@
             android:layout_weight="0.5"
             android:orientation="vertical"
             android:weightSum="1">
+
 
             <TextureView
                 android:id="@+id/tv2"
@@ -30,7 +36,10 @@
                 android:layout_height="match_parent"
                 android:layout_weight="0.83" />
 
+
+
         </LinearLayout>
+
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -48,34 +57,33 @@
                 android:layout_height="wrap_content"
                 android:text="Focus" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="8dp">
+     <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:padding="8dp">
 
-                <SeekBar
-                    android:id="@+id/focus_bar"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:max="0"
-                    android:min="-300" />
+    <SeekBar
+        android:id="@+id/focus_bar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:max="0"
+        android:min="-300" />
 
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/focus_lock"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_marginStart="8dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:padding="4dp"
-                    android:src="@drawable/ic_unlock" />
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/focus_lock"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="4dp"
+        android:src="@drawable/ic_unlock" />
 
-            </LinearLayout>
-
+</LinearLayout>
             <TextView
                 android:id="@+id/iso_txt"
                 android:layout_width="wrap_content"
@@ -85,8 +93,8 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:padding="8dp">
 
                 <SeekBar
@@ -109,16 +117,16 @@
                     android:src="@drawable/ic_unlock" />
             </LinearLayout>
 
+
             <Button
                 android:id="@+id/btn_plus_one"
                 android:layout_width="50px"
                 android:layout_height="50px"
-                android:backgroundTint="#FF4081"
                 android:text="+1"
-                android:textAllCaps="false"
+                android:textSize="50px"
                 android:textColor="#FFFFFF"
-                android:textSize="50px" />
-
+                android:backgroundTint="#FF4081"
+                android:textAllCaps="false" />
             <TextView
                 android:id="@+id/expo_txt"
                 android:layout_width="wrap_content"
@@ -139,8 +147,8 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
                 android:padding="8dp">
 
                 <SeekBar
@@ -190,8 +198,8 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
                 <TextView
                     android:id="@+id/textView"
@@ -206,16 +214,16 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="0.6"
                     android:ems="10"
-                    android:hint="Name"
-                    android:inputType="text" />
+                    android:inputType="text"
+                    android:hint="Name" />
 
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
                 <TextView
                     android:id="@+id/textView2"
@@ -223,6 +231,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="0.4"
                     android:text="capture quantity" />
+
 
                 <EditText
                     android:id="@+id/qtyText"
@@ -235,15 +244,36 @@
 
             </LinearLayout>
 
+
             <Space
                 android:layout_width="match_parent"
                 android:layout_height="20dp" />
 
-            <Button
-                android:id="@+id/cap"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="CAPTURE" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <Button
+                    android:id="@+id/cap"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="CAPTURE" />
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/capture_status_icon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="12dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="false"
+                    android:focusable="false"
+                    android:padding="4dp"
+                    
+                    android:contentDescription="capture status icon" />
+
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/indicator"
@@ -256,76 +286,75 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="SWITCH LINE" />
+                    
+        <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="8dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="8dp">
 
                 <SeekBar
                     android:id="@+id/line_bar"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:max="1000"
                     android:min="0" />
 
-                <androidx.appcompat.widget.AppCompatImageView
-                    android:id="@+id/line_lock"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_marginStart="8dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:padding="4dp"
-                    android:src="@drawable/ic_unlock" />
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/line_lock"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="4dp"
+            android:src="@drawable/ic_unlock" />
 
-            </LinearLayout>
 
         </LinearLayout>
-    </LinearLayout>
 
+    </LinearLayout>
     <LinearLayout
         android:layout_width="0dp"
+        app:layout_constraintWidth_percent="0.5"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        app:layout_constraintWidth_percent="0.5">
-
+        android:orientation="vertical">
         <ImageView
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="0.14"
             android:adjustViewBounds="true"
+            android:layout_weight="0.14"
             app:srcCompat="@drawable/marker" />
 
         <Space
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="0.8" />
+            android:layout_weight="0.8"/>
 
         <ImageView
             android:layout_width="match_parent"
+            android:adjustViewBounds="true"
             android:layout_height="0dp"
             android:layout_weight="0.14"
-            android:adjustViewBounds="true"
             app:srcCompat="@drawable/markerup" />
 
     </LinearLayout>
+    </LinearLayout>
+
 
     <FrameLayout
         android:id="@+id/line"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:background="#000000">
-
         <ImageView
-            android:id="@+id/line_view"
-            android:layout_width="match_parent"
-            android:layout_height="1px"
-            android:background="#FF0000" />
+        android:id="@+id/line_view"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="#FF0000" />
     </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
