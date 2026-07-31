@@ -496,14 +496,9 @@ public class Cam {
              */indicator.post(new Runnable() {
                 @Override
                 public void run() {
-                    // テキストの更新
-                    indicator.setText(String.format("Capture Sequence completed!\n%s, \n%d ms, %d, %f\n%d/%d done",
-                            sequenceName, expo, iso, fd, currentCount, sequrnceLength));
-
-                    // アイコンの更新
-                    if (captureStatusIcon != null) {
-                        captureStatusIcon.setImageResource(R.drawable.ic_check);
-                    }
+                    String message = String.format("Capture Sequence completed!\n%s, \n%d ms, %d, %f\n%d/%d done",
+                            sequenceName, expo, iso, fd, currentCount, sequrnceLength);
+                    setStatus(StatusType.SUCCESS, message, captureStatusIcon, indicator);
 
                     // Context 経由で Activity から CAPTURE ボタンを取得して透明度を戻す
                     if (indicator.getContext() instanceof Activity) {
@@ -522,8 +517,9 @@ public class Cam {
             indicator.post(new Runnable() {
                 @Override
                 public void run() {
-                    indicator.setText(String.format("Capturing…\n%s, \n%d ms, %d, %f\n%d/%d done", sequenceName, expo,
-                            iso, fd, currentCount, sequrnceLength));
+                    String message = String.format("Capturing…\n%s, \n%d ms, %d, %f\n%d/%d done", sequenceName, expo,
+                            iso, fd, currentCount, sequrnceLength);
+                    setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
 
                 }
             });
@@ -537,28 +533,49 @@ public class Cam {
         return;
     }
     // todo 確認
-    // *
-    // public static void setStatus( String type, String message,ImageView
-    // captureStatusIcon, TextView indicator) {
-    // if (type == "success") {
-    // // success
-    // if (captureStatusIcon != null) {
-    // captureStatusIcon.setImageResource(R.drawable.ic_check);
-    // }
-    // if (indicator != null) {
-    // indicator.setText(message);
-    // }
-    // }
-    // if (type == "error") {
-    // // error
-    // if (captureStatusIcon != null) {
-    // captureStatusIcon.setImageResource(R.drawable.ic_error);
-    // }
-    // if (indicator != null) {
-    // indicator.setText(message);
-    // }
-    // }
-    // }
+    
+    // ステータス用の enum
+    public enum StatusType {
+        SUCCESS,
+        ERROR,
+        LOADING
+    }
+
+    // $ setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
+    public static void setStatus(StatusType type, String message, ImageView captureStatusIcon,
+            TextView messageIndicator) {
+        // 1. テキストの更新
+        if (messageIndicator != null) {
+            messageIndicator.setText(message);
+        }
+
+        // 2. ガード節（Icon または type が null の場合は終了）
+        if (captureStatusIcon == null || type == null) {
+            return;
+        }
+
+        // 3. タイプに応じた処理切り替え
+        switch (type) {
+            case SUCCESS:
+                captureStatusIcon.setImageResource(R.drawable.ic_check);
+                break;
+
+            case ERROR:
+                captureStatusIcon.setImageResource(R.drawable.ic_cross);
+                break;
+
+            case LOADING:
+                // ★ activity ではなく View から Context を取得する
+                CircularProgressDrawable progressDrawable = new CircularProgressDrawable(
+                        captureStatusIcon.getContext());
+                progressDrawable.setStyle(CircularProgressDrawable.DEFAULT);
+                progressDrawable.setColorSchemeColors(Color.parseColor("#bbb7bd"));
+                progressDrawable.start();
+
+                captureStatusIcon.setImageDrawable(progressDrawable);
+                break;
+        }
+    }
 
     private TotalCaptureResult lastCapResult;
 
@@ -596,13 +613,9 @@ public class Cam {
                 indicator.post(new Runnable() {
                     @Override
                     public void run() {
-                        indicator.setText(String.format("Capturing…\n%s, \n%d ms, %d, %f\n%d/%d done", sequenceName,
-                                expo, iso, fd, currentCount, sequrnceLength));
-                        CircularProgressDrawable progressDrawable = new CircularProgressDrawable(activity);
-                        progressDrawable.setStyle(CircularProgressDrawable.DEFAULT);
-                        progressDrawable.setColorSchemeColors(Color.parseColor("#bbb7bd"));
-                        progressDrawable.start();
-                        captureStatusIcon.setImageDrawable(progressDrawable);
+                        String message = String.format("Capturing…\n%s, \n%d ms, %d, %f\n%d/%d done", sequenceName,
+                                expo, iso, fd, currentCount, sequrnceLength);
+                        setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
                     }
                 });
 
@@ -617,7 +630,8 @@ public class Cam {
                 indicator.post(new Runnable() {
                     @Override
                     public void run() {
-                        indicator.setText("obtained NULL IMAGE. Please try again.");
+                        String message = "obtained NULL IMAGE. Please try again.";
+                        setStatus(StatusType.ERROR, message, captureStatusIcon, indicator);
                         capture();
                     }
                 });
