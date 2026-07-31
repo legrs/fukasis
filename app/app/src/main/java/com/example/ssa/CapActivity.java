@@ -46,7 +46,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-public class CapActivity extends AppCompatActivity{
+public class CapActivity extends AppCompatActivity {
 
     private static final String TAG = "Camera2Native";
     private CameraDevice camDev;
@@ -61,7 +61,7 @@ public class CapActivity extends AppCompatActivity{
     private long expo = 100000000; // ns
     private int iso = 3200; // iso
     private float fd = 1; // m?
-    private int zoom = 0; //0:noZoom 1:focusing 2:pointing
+    private int zoom = 0; // 0:noZoom 1:focusing 2:pointing
     private boolean isLongExpo = false;
     private boolean isLine = true;
     private boolean isFocusLocked = false;
@@ -83,12 +83,13 @@ public class CapActivity extends AppCompatActivity{
 
     private Cam cam;
 
-    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults){
-        //super.onRequestPermissionResult(requestCode, permissions, grantResults);
-        if(requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
+    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) {
+        // super.onRequestPermissionResult(requestCode, permissions, grantResults);
+        if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             cam.setupCam();
         }
     }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -99,12 +100,12 @@ public class CapActivity extends AppCompatActivity{
         binding = ActivityCapBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        //setContentView(R.layout.activity_main);
+        // setContentView(R.layout.activity_main);
 
         // UIs
         Button zoomFF = binding.zoomFF;
         Button zoomFP = binding.zoomFP;
-        //!
+        // !
         Button capBtn = binding.cap;
         Button switchLine = binding.switchLine;
         tv1 = binding.tv1;
@@ -115,10 +116,8 @@ public class CapActivity extends AppCompatActivity{
         qtyText = binding.qtyText;
         TextView focusTxt = binding.focusTxt;
         SeekBar focusBar = binding.focusBar;
-        //todo 機能追加
+        // todo 機能追加
         AppCompatImageView focusLock = binding.focusLock;
-        
-
 
         SeekBar lineBar = binding.lineBar;
         FrameLayout line = binding.line;
@@ -133,26 +132,30 @@ public class CapActivity extends AppCompatActivity{
         focusTxt.setText("Focus:" + focusBar.getProgress() + "");
         isoTxt.setText("ISO:" + isoBar.getProgress() + "");
         expoTxt.setText("Exposure:" + expoBar.getProgress() + "");
-        Log.v("a","executed onCreate            a");
+        Log.v("a", "executed onCreate            a");
 
-        switchLine.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
+        switchLine.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
                 isLine = !isLine;
-                if(isLine){
+                if (isLine) {
                     line.setAlpha(255);
-                }else{
+                } else {
                     line.setAlpha(0);
                 }
-                
+
             }
         });
-        capBtn.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
-
-
+        capBtn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if(nameText.getText().toString().isEmpty()){
+                    String message = "Please enter a name for the capture sequence.";
+                    Cam.setStatus(Cam.StatusType.ERROR, message, captureStatusIcon, indicator);
+                    return;
+                }
                 int qty = Integer.parseInt(qtyText.getText().toString());
-                Log.d("a",String.format("start capture %d ms, %d, %f, %d枚,name:%s",(int)(expo/1000000L),iso,fd,qty,nameText.getText().toString()));
-                cam.startCaptureSession(expo, iso , fd, qty, nameText.getText().toString(), indicator);
+                Log.d("a", String.format("start capture %d ms, %d, %f, %d枚,name:%s", (int) (expo / 1000000L), iso, fd,
+                        qty, nameText.getText().toString()));
+                cam.startCaptureSession(expo, iso, fd, qty, nameText.getText().toString(), indicator);
                 Log.d("BUTTON", "start capture session！");
                 // captureボタンの透明度を下げる
                 capBtn.setAlpha(0.5f);
@@ -160,26 +163,26 @@ public class CapActivity extends AppCompatActivity{
 
             }
         });
-        zoomFF.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
-                if(zoom == 0){
+        zoomFF.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (zoom == 0) {
                     zoomFF.setText("UNZOOM");
                     zoom = 1;
                     cam.changeValueOfPreview(0, -100, 0, 1);
-                }else{
+                } else {
                     zoom = 0;
                     zoomFF.setText("ZOOM FOR FOCUSING");
                     cam.changeValueOfPreview(0, -100, 0, 0);
                 }
             }
         });
-        zoomFP.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
-                if(zoom == 0){
+        zoomFP.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (zoom == 0) {
                     zoomFP.setText("UNZOOM");
                     zoom = 2;
                     cam.transformTextures(2);
-                }else{
+                } else {
                     zoom = 0;
                     zoomFP.setText("ZOOM FOR POINTING");
                     cam.transformTextures(0);
@@ -189,9 +192,9 @@ public class CapActivity extends AppCompatActivity{
         expoSw.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton btn, boolean b) {
-                if(b){
+                if (b) {
                     isLongExpo = true;
-                }else{
+                } else {
                     isLongExpo = false;
                 }
             }
@@ -199,9 +202,9 @@ public class CapActivity extends AppCompatActivity{
         focusBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                fd = (float)i/100.0f;
+                fd = (float) i / 100.0f;
                 focusTxt.setText("Focus:" + fd + "");
-                
+
                 cam.changeValueOfPreview(0, fd, 0, -1);
             }
 
@@ -284,7 +287,7 @@ public class CapActivity extends AppCompatActivity{
         isoBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                switch(i){
+                switch (i) {
                     case 1:
                         iso = 50;
                         break;
@@ -349,19 +352,19 @@ public class CapActivity extends AppCompatActivity{
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 double ms;
 
-                if(isLongExpo){
-                    ms = Math.pow(10.0, 2.0 + (double)i*2.1461280356782/100.0);// log_10(30,000) = 4.4771212547197
-                }else{
-                    // min 0.04166 ms 
+                if (isLongExpo) {
+                    ms = Math.pow(10.0, 2.0 + (double) i * 2.1461280356782 / 100.0);// log_10(30,000) = 4.4771212547197
+                } else {
+                    // min 0.04166 ms
                     // 2.0(100ms) - -1.3802807343883 = 3.38028073439
-                    ms = Math.pow(10.0, -1.3802807343883 + (double)i*3.38028073439/100.0);
+                    ms = Math.pow(10.0, -1.3802807343883 + (double) i * 3.38028073439 / 100.0);
                 }
                 // 1. ミリ秒は (long) にせず double のまま表示に使う（例：小数点以下 2 桁）
-expoTxt.setText(String.format("Exposure: %.2f ms", ms));
+                expoTxt.setText(String.format("Exposure: %.2f ms", ms));
 
-// 2. ナノ秒（Camera2 API用）は大きな整数になるので (long) にキャストする
-expo = (long)(ms * 1000000.0);
-                
+                // 2. ナノ秒（Camera2 API用）は大きな整数になるので (long) にキャストする
+                expo = (long) (ms * 1000000.0);
+
                 cam.changeValueOfPreview(0, -100, expo, -1);
             }
 
@@ -376,11 +379,11 @@ expo = (long)(ms * 1000000.0);
         lineBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                //0 ~ 1000
-                if(zoom == 2){
-                    line.setY(1800+i/10);
-                }else{
-                    line.setY(2050+i/10);
+                // 0 ~ 1000
+                if (zoom == 2) {
+                    line.setY(1800 + i / 10);
+                } else {
+                    line.setY(2050 + i / 10);
                 }
             }
 
@@ -394,63 +397,63 @@ expo = (long)(ms * 1000000.0);
         });
 
         // capture sounds
-        AudioAttributes audioAttr = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
+        AudioAttributes audioAttr = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
         soundPool = new SoundPool.Builder().setAudioAttributes(audioAttr).setMaxStreams(2).build();
         alarmSound = soundPool.load(this, R.raw.technoalarm, 1);
         shatterSound = soundPool.load(this, R.raw.shatter, 1);
 
-
         // cam object
-        cam = new Cam(this, camId,soundPool,alarmSound, shatterSound, tv1, tv2, captureStatusIcon);
+        cam = new Cam(this, camId, soundPool, alarmSound, shatterSound, tv1, tv2, captureStatusIcon);
 
-
-        if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
-        }else{
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.CAMERA },
+                    CAMERA_PERMISSION_REQUEST_CODE);
+        } else {
             cam.setupCam();
         }
         cam.startBackgroundThread();
         // request camera permission
         //
-        
 
     }
 
-
     @Override
-    protected void onResume(){
+    protected void onResume() {
         super.onResume();
-        
+
         cam.startBackgroundThread();
         cam.setupCam();
     }
+
     @Override
-    protected void onPause(){
+    protected void onPause() {
         super.onPause();
         cam.closeCam();
         cam.stopBackgroundThread();
     }
 
-/*
-    @Override
-    public void surfaceChanged(@NonNull SurfaceHolder surfaceHolder, int i, int i1, int i2) {
-
-    }
-
-    //@Override
-    public void surfaceCreated(@NonNull SurfaceHolder holder){
-        if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED){
-            openCam(camId, holder.getSurface());
-            //showStr(s);
-        }
-    }
-
-    // when surface closed
-    //@Override
-    public void surfaceDestroyed(@NonNull SurfaceHolder holder){
-        //closeCam();
-    }
-*/
-
+    /*
+     * @Override
+     * public void surfaceChanged(@NonNull SurfaceHolder surfaceHolder, int i, int
+     * i1, int i2) {
+     * 
+     * }
+     * 
+     * //@Override
+     * public void surfaceCreated(@NonNull SurfaceHolder holder){
+     * if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+     * PackageManager.PERMISSION_GRANTED){
+     * openCam(camId, holder.getSurface());
+     * //showStr(s);
+     * }
+     * }
+     * 
+     * // when surface closed
+     * //@Override
+     * public void surfaceDestroyed(@NonNull SurfaceHolder holder){
+     * //closeCam();
+     * }
+     */
 
 }
