@@ -118,7 +118,7 @@
             </LinearLayout>
 
 
-            <Button
+            <!-- <Button
                 android:id="@+id/btn_plus_one"
                 android:layout_width="50px"
                 android:layout_height="50px"
@@ -126,7 +126,7 @@
                 android:textSize="50px"
                 android:textColor="#FFFFFF"
                 android:backgroundTint="#FF4081"
-                android:textAllCaps="false" />
+                android:textAllCaps="false" /> -->
             <TextView
                 android:id="@+id/expo_txt"
                 android:layout_width="wrap_content"
