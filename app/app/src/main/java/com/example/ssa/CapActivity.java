@@ -27,6 +27,7 @@ import android.widget.Switch;
 import android.widget.FrameLayout;
 import android.widget.CompoundButton;
 import android.widget.Toast;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import com.example.ssa.databinding.ActivityCapBinding;
 import android.content.Context;
@@ -65,6 +66,9 @@ public class CapActivity extends AppCompatActivity{
     private boolean isLongExpo = false;
     private boolean isLine = true;
     private boolean isFocusLocked = false;
+    private boolean isIsoLocked = false;
+    private boolean isExpoLocked = false;
+    private boolean isLineLocked = false;
 
     private TextureView tv1;
     private TextureView tv2;
@@ -109,21 +113,21 @@ public class CapActivity extends AppCompatActivity{
         qtyText = binding.qtyText;
         TextView focusTxt = binding.focusTxt;
         SeekBar focusBar = binding.focusBar;
-        //todo 機能追加
         AppCompatImageView focusLock = binding.focusLock;
-        
-
 
         SeekBar lineBar = binding.lineBar;
         FrameLayout line = binding.line;
         TextView isoTxt = binding.isoTxt;
         SeekBar isoBar = binding.isoBar;
+        AppCompatImageView isoLock = binding.isoLock;
         Switch expoSw = binding.expoSwitch;
         TextView expoTxt = binding.expoTxt;
         SeekBar expoBar = binding.expoBar;
-        focusTxt.setText(focusBar.getProgress() + "");
-        isoTxt.setText(isoBar.getProgress() + "");
-        expoTxt.setText(expoBar.getProgress() + "");
+        AppCompatImageView expoLock = binding.expoLock;
+        AppCompatImageView lineLock = binding.lineLock;
+        focusTxt.setText("Focus:" + focusBar.getProgress() + "");
+        isoTxt.setText("ISO:" + isoBar.getProgress() + "");
+        expoTxt.setText("Exposure:" + expoBar.getProgress() + "");
         Log.v("a","executed onCreate            a");
 
         switchLine.setOnClickListener(new View.OnClickListener(){
@@ -189,7 +193,7 @@ public class CapActivity extends AppCompatActivity{
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 fd = (float)i/100.0f;
-                focusTxt.setText(fd + "");
+                focusTxt.setText("Focus:" + fd + "");
                 
                 cam.changeValueOfPreview(0, fd, 0, -1);
             }
@@ -218,6 +222,54 @@ public class CapActivity extends AppCompatActivity{
                     focusLock.setImageResource(R.drawable.ic_unlock);
                     focusLock.setAlpha(1.0f);
                     Toast.makeText(CapActivity.this, "Focus bar : Unlocked", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        isoLock.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isIsoLocked = !isIsoLocked;
+                if (isIsoLocked) {
+                    isoBar.setEnabled(false);
+                    isoLock.setImageResource(R.drawable.ic_lock);
+                    isoLock.setAlpha(0.5f);
+                } else {
+                    isoBar.setEnabled(true);
+                    isoLock.setImageResource(R.drawable.ic_unlock);
+                    isoLock.setAlpha(1.0f);
+                }
+            }
+        });
+
+        expoLock.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isExpoLocked = !isExpoLocked;
+                if (isExpoLocked) {
+                    expoBar.setEnabled(false);
+                    expoLock.setImageResource(R.drawable.ic_lock);
+                    expoLock.setAlpha(0.5f);
+                } else {
+                    expoBar.setEnabled(true);
+                    expoLock.setImageResource(R.drawable.ic_unlock);
+                    expoLock.setAlpha(1.0f);
+                }
+            }
+        });
+
+        lineLock.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isLineLocked = !isLineLocked;
+                if (isLineLocked) {
+                    lineBar.setEnabled(false);
+                    lineLock.setImageResource(R.drawable.ic_lock);
+                    lineLock.setAlpha(0.5f);
+                } else {
+                    lineBar.setEnabled(true);
+                    lineLock.setImageResource(R.drawable.ic_unlock);
+                    lineLock.setAlpha(1.0f);
                 }
             }
         });
@@ -273,7 +325,7 @@ public class CapActivity extends AppCompatActivity{
                         break;
                 }
 
-                isoTxt.setText(iso + "");
+                isoTxt.setText("ISO:" + iso + "");
                 cam.changeValueOfPreview(iso, -100, 0, -1);
             }
 
@@ -297,8 +349,12 @@ public class CapActivity extends AppCompatActivity{
                     // 2.0(100ms) - -1.3802807343883 = 3.38028073439
                     ms = Math.pow(10.0, -1.3802807343883 + (double)i*3.38028073439/100.0);
                 }
-                expo = (long)(ms*1000000.0);
-                expoTxt.setText(ms + "");
+                // 1. ミリ秒は (long) にせず double のまま表示に使う（例：小数点以下 2 桁）
+expoTxt.setText(String.format("Exposure: %.2f ms", ms));
+
+// 2. ナノ秒（Camera2 API用）は大きな整数になるので (long) にキャストする
+expo = (long)(ms * 1000000.0);
+                
                 cam.changeValueOfPreview(0, -100, expo, -1);
             }
 
