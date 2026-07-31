@@ -493,11 +493,12 @@ public class Cam {
              * resolver.delete(uri, null, null);
              * }
              * }
-             */indicator.post(new Runnable() {
+             */
+            indicator.post(new Runnable() {
                 @Override
                 public void run() {
                     String message = String.format("Capture Sequence completed!\n%s, \n%d ms, %d, %f\n%d/%d done",
-                            sequenceName, expo, iso, fd, currentCount, sequrnceLength);
+                            "Sequence: " + sequenceName, "Exposure: " + expo, "ISO: " + iso, "Focus: " + fd, currentCount, sequenceLength);
                     setStatus(StatusType.SUCCESS, message, captureStatusIcon, indicator);
 
                     // Context 経由で Activity から CAPTURE ボタンを取得して透明度を戻す
@@ -517,8 +518,7 @@ public class Cam {
             indicator.post(new Runnable() {
                 @Override
                 public void run() {
-                    String message = String.format("Capturing…\n%s, \n%d ms, %d, %f\n%d/%d done", sequenceName, expo,
-                            iso, fd, currentCount, sequrnceLength);
+                    String message = String.format("Capturing…\n%s, \n%d ms, %d, %f\n%d/%d done", "Sequence: " + sequenceName, "Exposure: " + expo, "ISO: " + iso, "Focus: " + fd, currentCount, sequenceLength);
                     setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
 
                 }
@@ -532,7 +532,6 @@ public class Cam {
         }
         return;
     }
-    // todo 確認
     
     // ステータス用の enum
     public enum StatusType {
@@ -541,7 +540,7 @@ public class Cam {
         LOADING
     }
 
-    // $ setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
+    // $使用例： setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
     public static void setStatus(StatusType type, String message, ImageView captureStatusIcon,
             TextView messageIndicator) {
         // 1. テキストの更新
@@ -549,7 +548,7 @@ public class Cam {
             messageIndicator.setText(message);
         }
 
-        // 2. ガード節（Icon または type が null の場合は終了）
+        // 2. ガード節
         if (captureStatusIcon == null || type == null) {
             return;
         }
@@ -565,7 +564,6 @@ public class Cam {
                 break;
 
             case LOADING:
-                // ★ activity ではなく View から Context を取得する
                 CircularProgressDrawable progressDrawable = new CircularProgressDrawable(
                         captureStatusIcon.getContext());
                 progressDrawable.setStyle(CircularProgressDrawable.DEFAULT);

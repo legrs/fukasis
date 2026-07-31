@@ -150,6 +150,7 @@ public class CapActivity extends AppCompatActivity {
                 if(nameText.getText().toString().isEmpty()){
                     String message = "Please enter a name for the capture sequence.";
                     Cam.setStatus(Cam.StatusType.ERROR, message, captureStatusIcon, indicator);
+                    // Cam.java: setStatusメソッドを使用して、エラーメッセージを表示する
                     return;
                 }
                 int qty = Integer.parseInt(qtyText.getText().toString());
