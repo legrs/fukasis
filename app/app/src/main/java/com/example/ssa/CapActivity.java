@@ -27,7 +27,6 @@ import android.widget.Switch;
 import android.widget.FrameLayout;
 import android.widget.CompoundButton;
 import android.widget.Toast;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import com.example.ssa.databinding.ActivityCapBinding;
 import android.content.Context;
@@ -73,6 +72,7 @@ public class CapActivity extends AppCompatActivity{
     private TextureView tv1;
     private TextureView tv2;
     private TextView indicator;
+    private AppCompatImageView captureStatusIcon;
     private FrameLayout line;
     private EditText nameText;
     private EditText qtyText;
@@ -104,16 +104,21 @@ public class CapActivity extends AppCompatActivity{
         // UIs
         Button zoomFF = binding.zoomFF;
         Button zoomFP = binding.zoomFP;
+        //!
         Button capBtn = binding.cap;
         Button switchLine = binding.switchLine;
         tv1 = binding.tv1;
         tv2 = binding.tv2;
+        captureStatusIcon = binding.captureStatusIcon;
         nameText = binding.nameText;
         indicator = binding.indicator;
         qtyText = binding.qtyText;
         TextView focusTxt = binding.focusTxt;
         SeekBar focusBar = binding.focusBar;
+        //todo 機能追加
         AppCompatImageView focusLock = binding.focusLock;
+        
+
 
         SeekBar lineBar = binding.lineBar;
         FrameLayout line = binding.line;
@@ -149,7 +154,9 @@ public class CapActivity extends AppCompatActivity{
                 Log.d("a",String.format("start capture %d ms, %d, %f, %d枚,name:%s",(int)(expo/1000000L),iso,fd,qty,nameText.getText().toString()));
                 cam.startCaptureSession(expo, iso , fd, qty, nameText.getText().toString(), indicator);
                 Log.d("BUTTON", "start capture session！");
-
+                // captureボタンの透明度を下げる
+                capBtn.setAlpha(0.5f);
+                capBtn.setEnabled(false);
 
             }
         });
@@ -394,7 +401,7 @@ expo = (long)(ms * 1000000.0);
 
 
         // cam object
-        cam = new Cam(this, camId,soundPool,alarmSound, shatterSound, tv1, tv2);
+        cam = new Cam(this, camId,soundPool,alarmSound, shatterSound, tv1, tv2, captureStatusIcon);
 
 
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
