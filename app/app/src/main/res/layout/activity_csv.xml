@@ -108,6 +108,7 @@
 
 
     <FrameLayout
+        tools:ignore="MissingConstraints"
         android:id="@+id/line"
         android:layout_width="0dp"
         android:layout_height="80dp"

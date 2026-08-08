@@ -22,6 +22,7 @@ import android.util.Log;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Build;
 import android.util.Size;
 import android.view.Surface;
 import android.view.TextureView;
@@ -274,7 +275,9 @@ public class Cam{
             Rect sensorRect = camCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
             if(zoom == 0){
                 transformTextures(0);
-                capRequestBuilder.set(CaptureRequest.CONTROL_ZOOM_RATIO, 1.0f);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    capRequestBuilder.set(CaptureRequest.CONTROL_ZOOM_RATIO, 1.0f);
+                }
                 capRequestBuilder.set(CaptureRequest.SCALER_CROP_REGION, sensorRect);
             }else if(zoom == 1){
                 transformTextures(1);
@@ -304,11 +307,11 @@ public class Cam{
     public void startCaptureSession(long expo, int iso, float fd, int qty, String name, TextView indicator){
         if(camDev == null) return;
 
-            try{
-                capSession.abortCaptures();
-            }catch(CameraAccessException e){
-                e.printStackTrace();
-            }
+        try{
+            capSession.abortCaptures();
+        }catch(CameraAccessException e){
+            e.printStackTrace();
+        }
         sequrnceLength = qty;
         sequenceName = name;
         prepare(maxW,maxH);
