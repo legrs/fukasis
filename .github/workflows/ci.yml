@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # ------------------------------------------------------------------
+        # 使用するOSイメージの一覧。
+        # 最新のOSに上げたいときは、この os リストを書き換えるだけです。
+        #
+        # 2026-08時点でのGitHubホステッドランナーは以下 (詳細は
+        # https://github.com/actions/runner-images を参照):
+        #   ubuntu-latest -> ubuntu-24.04 (GA)  / ubuntu-26.04 (public preview)
+        #   macos-latest  -> macos-26 (arm64)   / macos-15
+        #   windows-latest-> windows-2025       / windows-2022
+        #
+        # 注意: ubuntu-*-arm は AGP の aapt2 に linux-arm64 バイナリが無いため
+        # Androidビルドが不可能です (armランナーで動かす場合はwindows-11-arm
+        # のようにx64エミュレーションされるものに限る)。
+        # ------------------------------------------------------------------
+        os:
+          - ubuntu-latest
+          - ubuntu-26.04
+          - ubuntu-24.04
+          - macos-latest
+          - macos-26
+          - macos-26-intel
+          - windows-latest
+          - windows-2025
+          - windows-2022
+          - windows-11-arm
+          - windows-11-vs2026-arm
+
+    env:
+      GRADLE_OPTS: -Dorg.gradle.daemon=false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          # arm系ランナー(ubuntu-*-arm / windows-11-*arm)では"tools"パッケージの
+          # 依存先であるemulatorが配布されておらず、sdkmanagerが失敗するため
+          # platform-tools のみインストールする。
+          # macOS (arm64のmacos-26等) ではemulatorが配布されているため
+          # この回避策は適用しない。
+          packages: ${{ (startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'windows')) && contains(matrix.os, '-arm') && 'platform-tools' || 'tools platform-tools' }}
+
+      # OpenCV SDKはリポジトリ内に同梱されているので、
+      # ローカルのAndroid Studioと同様に local.properties でパスを渡す。
+      - name: Write local.properties
+        shell: bash
+        run: |
+          OPENCV_DIR="${{ github.workspace }}/app/app/src/main/sdk/native/jni"
+          # Windowsのワークスペースパスはバックスラッシュ・ドライブ文字のコロンを
+          # Java propertiesとしてエスケープする必要がある
+          OPENCV_DIR="${OPENCV_DIR//\\//}"
+          OPENCV_DIR="${OPENCV_DIR//:/\\:}"
+          printf 'opencv.dir=%s\n' "${OPENCV_DIR}" > app/local.properties
+          cat app/local.properties
+
+      - name: Build & Test & Lint
+        working-directory: app
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: app-debug-${{ matrix.os }}
+          path: app/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: ignore
+
+      - name: Upload test & lint reports
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() || cancelled() }}
+        with:
+          name: reports-${{ matrix.os }}
+          path: |
+            app/app/build/reports/tests/**
+            app/app/build/reports/lint-*
+          if-no-files-found: ignore

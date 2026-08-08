@@ -123,7 +123,7 @@ public class CapActivity extends AppCompatActivity{
             public void onClick(View v){
                 isLine = !isLine;
                 if(isLine){
-                    line.setAlpha(255);
+                    line.setAlpha(1f);
                 }else{
                     line.setAlpha(0);
                 }
