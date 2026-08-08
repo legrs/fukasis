@@ -28,16 +28,26 @@ jobs:
         #   windows-latest-> windows-2025       / windows-2022
         # ------------------------------------------------------------------
         os:
+          - ubuntu-latest
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
           - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-latest
           - macos-26
+          - macos-26-intel
+          - windows-latest
           - windows-2025
+          - windows-2022
+          - windows-11-arm
+          - windows-11-vs2026-arm
 
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -46,7 +56,7 @@ jobs:
           java-version: "21"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       # OpenCV SDKはリポジトリ内に同梱されているので、
       # ローカルのAndroid Studioと同様に local.properties でパスを渡す。
@@ -66,7 +76,7 @@ jobs:
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
 
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: app-debug-${{ matrix.os }}
@@ -74,7 +84,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload test & lint reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ failure() || cancelled() }}
         with:
           name: reports-${{ matrix.os }}
