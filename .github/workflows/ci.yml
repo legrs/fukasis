@@ -57,6 +57,11 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          # arm系ランナー(ubuntu-*-arm / windows-11-*arm)では"tools"パッケージの
+          # 依存先であるemulatorが配布されておらず、sdkmanagerが失敗するため
+          # platform-tools のみインストールする。
+          packages: ${{ contains(matrix.os, '-arm') && 'platform-tools' || 'tools platform-tools' }}
 
       # OpenCV SDKはリポジトリ内に同梱されているので、
       # ローカルのAndroid Studioと同様に local.properties でパスを渡す。
