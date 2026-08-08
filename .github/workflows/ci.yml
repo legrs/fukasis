@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # ------------------------------------------------------------------
+        # 使用するOSイメージの一覧。
+        # 最新のOSに上げたいときは、この os リストを書き換えるだけです。
+        #
+        # 2026-08時点でのGitHubホステッドランナーは以下 (詳細は
+        # https://github.com/actions/runner-images を参照):
+        #   ubuntu-latest -> ubuntu-24.04 (GA)  / ubuntu-26.04 (public preview)
+        #   macos-latest  -> macos-26 (arm64)   / macos-15
+        #   windows-latest-> windows-2025       / windows-2022
+        # ------------------------------------------------------------------
+        os:
+          - ubuntu-24.04
+          - macos-26
+          - windows-2025
+
+    env:
+      GRADLE_OPTS: -Dorg.gradle.daemon=false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # OpenCV SDKはリポジトリ内に同梱されているので、
+      # ローカルのAndroid Studioと同様に local.properties でパスを渡す。
+      - name: Write local.properties
+        shell: bash
+        run: |
+          OPENCV_DIR="${{ github.workspace }}/app/app/src/main/sdk/native/jni"
+          # Windowsのワークスペースパスはバックスラッシュなので置換して統一する
+          OPENCV_DIR="${OPENCV_DIR//\\//}"
+          printf 'opencv.dir=%s\n' "${OPENCV_DIR}" > app/local.properties
+          cat app/local.properties
+
+      - name: Build & Test & Lint
+        working-directory: app
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: app-debug-${{ matrix.os }}
+          path: app/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: ignore
+
+      - name: Upload test & lint reports
+        uses: actions/upload-artifact@v4
+        if: ${{ failure() || cancelled() }}
+        with:
+          name: reports-${{ matrix.os }}
+          path: |
+            app/app/build/reports/tests/**
+            app/app/build/reports/lint-*
+          if-no-files-found: ignore
