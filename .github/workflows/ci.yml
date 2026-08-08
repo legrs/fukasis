@@ -26,13 +26,15 @@ jobs:
         #   ubuntu-latest -> ubuntu-24.04 (GA)  / ubuntu-26.04 (public preview)
         #   macos-latest  -> macos-26 (arm64)   / macos-15
         #   windows-latest-> windows-2025       / windows-2022
+        #
+        # 注意: ubuntu-*-arm は AGP の aapt2 に linux-arm64 バイナリが無いため
+        # Androidビルドが不可能です (armランナーで動かす場合はwindows-11-arm
+        # のようにx64エミュレーションされるものに限る)。
         # ------------------------------------------------------------------
         os:
           - ubuntu-latest
           - ubuntu-26.04
-          - ubuntu-26.04-arm
           - ubuntu-24.04
-          - ubuntu-24.04-arm
           - macos-latest
           - macos-26
           - macos-26-intel
