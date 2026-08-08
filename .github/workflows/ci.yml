@@ -54,8 +54,10 @@ jobs:
         shell: bash
         run: |
           OPENCV_DIR="${{ github.workspace }}/app/app/src/main/sdk/native/jni"
-          # Windowsのワークスペースパスはバックスラッシュなので置換して統一する
+          # Windowsのワークスペースパスはバックスラッシュ・ドライブ文字のコロンを
+          # Java propertiesとしてエスケープする必要がある
           OPENCV_DIR="${OPENCV_DIR//\\//}"
+          OPENCV_DIR="${OPENCV_DIR//:/\\:}"
           printf 'opencv.dir=%s\n' "${OPENCV_DIR}" > app/local.properties
           cat app/local.properties
 
