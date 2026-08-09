@@ -89,11 +89,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends "$QEMU_PKG"
           # パッケージの postinst が登録していない場合に備えて手動登録する。
           # ELF64 かつ e_machine=x86_64 (0x3e) のバイナリを qemu-x86_64 で透過実行する。
-          # x86_64 ツールは動的リンクなので、x86_64 版 glibc (ローダー + libc 等) も
-          # 用意する。ローダーは PT_INTERP の絶対パス (/lib64/ld-linux-x86-64.so.2) で
+          # x86_64 ツールは動的リンクなので、x86_64 版のランタイム (glibc / libgcc / libstdc++)
+          # も用意する。ローダーは PT_INTERP の絶対パス (/lib64/ld-linux-x86-64.so.2) で
           # 開かれるため /lib64 にシンボリックリンクを置き、共有ライブラリの検索は
           # ジョブ全体の LD_LIBRARY_PATH で行う (下記 env 参照)。
-          sudo apt-get install -y --no-install-recommends libc6-amd64-cross
+          sudo apt-get install -y --no-install-recommends \
+            libc6-amd64-cross libgcc-s1-amd64-cross libstdc++6-amd64-cross
           if [ ! -e /lib64/ld-linux-x86-64.so.2 ]; then
             sudo mkdir -p /lib64
             LOADER=$(find /usr/x86_64-linux-gnu -name 'ld-linux-x86-64.so.*' 2>/dev/null | head -1)
