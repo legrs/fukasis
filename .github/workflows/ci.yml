@@ -95,7 +95,10 @@ jobs:
           # ジョブ全体の LD_LIBRARY_PATH で行う (下記 env 参照)。
           sudo apt-get install -y --no-install-recommends libc6-amd64-cross
           if [ ! -e /lib64/ld-linux-x86-64.so.2 ]; then
-            sudo ln -s /usr/x86_64-linux-gnu/lib/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+            sudo mkdir -p /lib64
+            LOADER=$(find /usr/x86_64-linux-gnu -name 'ld-linux-x86-64.so.*' 2>/dev/null | head -1)
+            [ -n "$LOADER" ] || LOADER=/usr/x86_64-linux-gnu/lib/ld-linux-x86-64.so.2
+            sudo ln -sfn "$LOADER" /lib64/ld-linux-x86-64.so.2
           fi
           if [ ! -e /proc/sys/fs/binfmt_misc/qemu-x86_64 ]; then
             INTERP=/usr/libexec/qemu-binfmt/x86_64-binfmt-P
