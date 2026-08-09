@@ -49,6 +49,10 @@ jobs:
 
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
+      # ubuntu-*-arm ランナーで qemu-user 経由で実行される x86_64 バイナリ
+      # (aapt2 等) が共有ライブラリ (libc.so.6 等) を検索するパス。
+      # libc6-amd64-cross がインストールする場所 (= Enable x86_64 emulation ステップ)。
+      LD_LIBRARY_PATH: /usr/x86_64-linux-gnu/lib
 
     steps:
       - name: Checkout
@@ -85,6 +89,14 @@ jobs:
           sudo apt-get install -y --no-install-recommends "$QEMU_PKG"
           # パッケージの postinst が登録していない場合に備えて手動登録する。
           # ELF64 かつ e_machine=x86_64 (0x3e) のバイナリを qemu-x86_64 で透過実行する。
+          # x86_64 ツールは動的リンクなので、x86_64 版 glibc (ローダー + libc 等) も
+          # 用意する。ローダーは PT_INTERP の絶対パス (/lib64/ld-linux-x86-64.so.2) で
+          # 開かれるため /lib64 にシンボリックリンクを置き、共有ライブラリの検索は
+          # ジョブ全体の LD_LIBRARY_PATH で行う (下記 env 参照)。
+          sudo apt-get install -y --no-install-recommends libc6-amd64-cross
+          if [ ! -e /lib64/ld-linux-x86-64.so.2 ]; then
+            sudo ln -s /usr/x86_64-linux-gnu/lib/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+          fi
           if [ ! -e /proc/sys/fs/binfmt_misc/qemu-x86_64 ]; then
             INTERP=/usr/libexec/qemu-binfmt/x86_64-binfmt-P
             [ -x "$INTERP" ] || INTERP=/usr/bin/qemu-x86_64-static
@@ -105,6 +117,8 @@ jobs:
           EOF
           fi
           cat /proc/sys/fs/binfmt_misc/qemu-x86_64
+          # x86_64 ローダーが qemu 経由で動くことを確認する
+          /lib64/ld-linux-x86-64.so.2 --version
 
       # OpenCV SDKはリポジトリ内に同梱されているので、
       # ローカルのAndroid Studioと同様に local.properties でパスを渡す。
