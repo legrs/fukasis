@@ -36,7 +36,7 @@ import android.content.ContentUris;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 public class ViewActivity extends AppCompatActivity {
 
     private ActivityViewBinding binding;
@@ -72,7 +72,13 @@ public class ViewActivity extends AppCompatActivity {
         
         // グラフにマーカーをセット！
         lineChart.setMarker(marker);
-
+        FloatingActionButton homeButton = binding.homeButton;
+        homeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish(); // Finish the current activity and return to the previous one
+            }
+        });
         Button openBtn = binding.open;
         openBtn.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){

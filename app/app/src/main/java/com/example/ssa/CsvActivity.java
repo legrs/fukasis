@@ -23,7 +23,7 @@ import android.widget.Button;
 import android.widget.EditText;
 
 import com.example.ssa.databinding.ActivityCsvBinding;
-
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import android.content.ContentResolver;
 import android.provider.MediaStore;
 import android.widget.SeekBar;
@@ -121,6 +121,13 @@ public class CsvActivity extends AppCompatActivity{
                     iv.getLocationOnScreen(pos);
                 }
 
+            }
+        });
+        FloatingActionButton homeButton = binding.homeButton;
+        homeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish(); // Finish the current activity and return to the previous one
             }
         });
         opencsvBtn.setOnClickListener(new View.OnClickListener(){
