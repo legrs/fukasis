@@ -50,9 +50,11 @@ jobs:
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
       # ubuntu-*-arm ランナーで qemu-user 経由で実行される x86_64 バイナリ
-      # (aapt2 等) が共有ライブラリ (libc.so.6 等) を検索するパス。
-      # libc6-amd64-cross がインストールする場所 (= Enable x86_64 emulation ステップ)。
-      LD_LIBRARY_PATH: /usr/x86_64-linux-gnu/lib
+      # (aapt2 / clang 等) が共有ライブラリを検索するパス。
+      #   /usr/x86_64-linux-gnu/lib: libc6-amd64-cross 等 (ローダー管理の明文パス)
+      #   /lib/x86_64-linux-gnu 等  : dpkg --add-architecture amd64 で入れた
+      #                               パッケージ (zlib 等)
+      LD_LIBRARY_PATH: /usr/x86_64-linux-gnu/lib:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu
 
     steps:
       - name: Checkout
@@ -82,6 +84,9 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
+          # arm64 ホストに x86_64 (amd64) 用ライブラリ (zlib 等) を共存させる
+          sudo dpkg --add-architecture amd64
+          sudo apt-get update
           # Ubuntu 26.04 で qemu-user-static は仮想パッケージ化され
           # qemu-user-binfmt に改名されたため、両方に対応する
           QEMU_PKG=qemu-user-static
@@ -94,7 +99,7 @@ jobs:
           # 開かれるため /lib64 にシンボリックリンクを置き、共有ライブラリの検索は
           # ジョブ全体の LD_LIBRARY_PATH で行う (下記 env 参照)。
           sudo apt-get install -y --no-install-recommends \
-            libc6-amd64-cross libgcc-s1-amd64-cross libstdc++6-amd64-cross
+            libc6-amd64-cross libgcc-s1-amd64-cross libstdc++6-amd64-cross zlib1g:amd64
           if [ ! -e /lib64/ld-linux-x86-64.so.2 ]; then
             sudo mkdir -p /lib64
             LOADER=$(find /usr/x86_64-linux-gnu -name 'ld-linux-x86-64.so.*' 2>/dev/null | head -1)
