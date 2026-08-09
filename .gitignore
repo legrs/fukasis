@@ -13,3 +13,5 @@ app/*.keystore
 
 app/app/release/
 .vscode/
+
+.DS_Store

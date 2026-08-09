@@ -137,8 +137,8 @@ public class CapActivity extends AppCompatActivity {
         switchLine.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 isLine = !isLine;
-                if (isLine) {
-                    line.setAlpha(255);
+if (isLine) {
+                    line.setAlpha(1f);
                 } else {
                     line.setAlpha(0);
                 }

@@ -35,19 +35,9 @@
         <activity
             android:name=".DarkActivity"
             android:exported="false" />
-        <activity
+<activity
             android:name=".CsvActivity"
             android:exported="false" />
-        <activity
-            android:name=".senCal"
-            android:exported="false" />
-        <activity
-            android:name=".wlCalib"
-            android:exported="false" />
-        <activity
-            android:name=".CsActivity"
-            android:exported="false"
-            android:theme="@style/Theme.SSA" />
         <activity
             android:name=".CapActivity"
             android:exported="false"
