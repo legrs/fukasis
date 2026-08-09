@@ -154,8 +154,8 @@ public class CapActivity extends AppCompatActivity {
                     return;
                 }
                 int qty = Integer.parseInt(qtyText.getText().toString());
-                Log.d("a", String.format("start capture %d ms, %d, %f, %d枚,name:%s", (int) (expo / 1000000L), iso, fd,
-                        qty, nameText.getText().toString()));
+                // Log.d("a", String.format("start capture %d ms, %d, %f, %d枚,name:%s", (int) (expo / 1000000L), iso, fd,
+                //         qty, nameText.getText().toString()));
                 cam.startCaptureSession(expo, iso, fd, qty, nameText.getText().toString(), indicator);
                 Log.d("BUTTON", "start capture session！");
                 // captureボタンの透明度を下げる
