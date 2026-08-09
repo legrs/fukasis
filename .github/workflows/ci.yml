@@ -78,7 +78,11 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends qemu-user-static binfmt-support
+          # Ubuntu 26.04 で qemu-user-static は仮想パッケージ化され
+          # qemu-user-binfmt に改名されたため、両方に対応する
+          QEMU_PKG=qemu-user-static
+          apt-cache show qemu-user-binfmt > /dev/null 2>&1 && QEMU_PKG=qemu-user-binfmt
+          sudo apt-get install -y --no-install-recommends "$QEMU_PKG"
           # パッケージの postinst が登録していない場合に備えて手動登録する。
           # ELF64 かつ e_machine=x86_64 (0x3e) のバイナリを qemu-x86_64 で透過実行する。
           if [ ! -e /proc/sys/fs/binfmt_misc/qemu-x86_64 ]; then
