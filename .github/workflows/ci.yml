@@ -86,6 +86,11 @@ jobs:
           sudo apt-get update
           # arm64 ホストに x86_64 (amd64) 用ライブラリ (zlib 等) を共存させる
           sudo dpkg --add-architecture amd64
+          # arm64 専用ミラー (ubuntu-ports) には amd64 index が無いため、
+          # multiarch 対応ミラー (26.04-arm で実績のある azure ミラー) を追加する
+          CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+          echo "deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu ${CODENAME} main universe multiverse restricted" | sudo tee /etc/apt/sources.list.d/amd64.list > /dev/null
+          echo "deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu ${CODENAME}-updates main universe multiverse restricted" | sudo tee -a /etc/apt/sources.list.d/amd64.list > /dev/null
           sudo apt-get update
           # Ubuntu 26.04 で qemu-user-static は仮想パッケージ化され
           # qemu-user-binfmt に改名されたため、両方に対応する
