@@ -21,7 +21,7 @@ import android.widget.Button;
 import android.widget.EditText;
 
 import com.example.ssa.databinding.ActivityCalibBinding;
-
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import android.content.ContentResolver;
 import android.provider.MediaStore;
 import android.widget.SeekBar;
@@ -106,9 +106,10 @@ public class CalibActivity extends AppCompatActivity{
 
                 String filepath = "Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/";
                 String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
-
-                    //  jpg image ( for preview )
                 
+                //  jpg image ( for preview )
+
+                //* ファイル名を指定
                 String filename = "stacked.jpg";
                 String[] selectionArgs = new String[]{filename, filepath};
 
@@ -118,13 +119,19 @@ public class CalibActivity extends AppCompatActivity{
                             selection,
                             selectionArgs,
                             null)){
+                    //* */ filenameをlog
+                    Log.d("a", "filename: " + filename);
+                    
                     if(cursor != null && cursor.moveToFirst()){
                         long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
                         // exsists
                         uri = ContentUris.withAppendedId(collection, id);
                         Log.d("a","ありましたよっ！");
                     }else{
+
                         Log.d("a","な、ないです…");
+                        Log.d("a","uri = " + uri);
+                        Log.d("a","filepath = " + filepath);
                     }
 
                 }
@@ -155,6 +162,13 @@ public class CalibActivity extends AppCompatActivity{
                     iv2.getLocationOnScreen(pos);
                 }
 
+            }
+        });
+                FloatingActionButton homeButton = binding.homeButton;
+        homeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish(); // Finish the current activity and return to the previous one
             }
         });
         exportBtn.setOnClickListener(new View.OnClickListener(){

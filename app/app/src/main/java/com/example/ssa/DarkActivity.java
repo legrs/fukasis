@@ -20,7 +20,7 @@ import android.widget.Button;
 import android.widget.EditText;
 
 import com.example.ssa.databinding.ActivityDarkBinding;
-
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import android.content.ContentResolver;
 import android.provider.MediaStore;
 import android.widget.SeekBar;
@@ -50,7 +50,13 @@ public class DarkActivity extends AppCompatActivity{
         
         path_et1 = binding.input1;
         path_et2 = binding.input2;
-
+        FloatingActionButton homeButton = binding.homeButton;
+        homeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish(); // Finish the current activity and return to the previous one
+            }
+        });
         exportBtn.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
                 ContentResolver resolver = getContentResolver();
