@@ -500,8 +500,8 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
             indicator.post(new Runnable() {
                 @Override
                 public void run() {
-                    String message = String.format("Capture Sequence completed!\n%s, \n%d ms, %d, %f\n%d/%d done",
-                            "Sequence: " + sequenceName, "Exposure: " + expo, "ISO: " + iso, "Focus: " + fd, currentCount, sequenceLength);
+                    String message = String.format("Capture Sequence completed!\nSequence: %s, \nExposure: %d ms, ISO: %d, Focus: %f\n%d/%d done",
+                             sequenceName, expo, iso, fd, currentCount, sequenceLength);
                     setStatus(StatusType.SUCCESS, message, captureStatusIcon, indicator);
 
                     // Context 経由で Activity から CAPTURE ボタンを取得して透明度を戻す
@@ -521,7 +521,7 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
             indicator.post(new Runnable() {
                 @Override
                 public void run() {
-                    String message = String.format("Capturing…\n%s, \n%d ms, %d, %f\n%d/%d done", "Sequence: " + sequenceName, "Exposure: " + expo, "ISO: " + iso, "Focus: " + fd, currentCount, sequenceLength);
+                    String message = String.format("Capturing…\nSequence: %s, \nExposure: %d ms, ISO: %d, Focus: %f\n%d/%d done", sequenceName, expo, iso, fd, currentCount, sequenceLength);
                     setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
 
                 }
