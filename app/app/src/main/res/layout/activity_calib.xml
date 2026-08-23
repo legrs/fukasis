@@ -50,6 +50,13 @@
             tools:layout_editor_absoluteX="293dp"
             tools:layout_editor_absoluteY="54dp" />
 
+        <Button
+            android:id="@+id/autoCalib"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Auto Detect (Fol &amp; Peaks)"
+            tools:layout_editor_absoluteX="293dp"
+            tools:layout_editor_absoluteY="54dp" />
 
         <Space
             android:layout_width="match_parent"

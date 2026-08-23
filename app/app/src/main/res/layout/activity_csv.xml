@@ -50,6 +50,12 @@
         android:layout_height="wrap_content"
         android:text="open image"/>
 
+        <Button
+            android:id="@+id/autoFol"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Auto Detect Fol" />
+
         <Space
             android:layout_width="match_parent"
             android:layout_height="20dp" />

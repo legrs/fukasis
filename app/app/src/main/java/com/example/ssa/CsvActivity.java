@@ -123,6 +123,60 @@ public class CsvActivity extends AppCompatActivity{
 
             }
         });
+        Button autoFolBtn = binding.autoFol;
+        autoFolBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String seq = path_et1.getText().toString().trim();
+                if (seq.isEmpty()) {
+                    android.widget.Toast.makeText(activity, "Sequence Nameを入力してください", android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (imgWidth == 0) {
+                    android.widget.Toast.makeText(activity, "先に open image してください", android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                ContentResolver resolver = getContentResolver();
+                Uri collection = MediaStore.Files.getContentUri("external");
+                String filepath = "Documents/FUKASIS-app/imgs/" + seq + "/";
+                String[] names = {"darked.tif", "stacked.tif"};
+                Uri tifUri = null;
+                for (String name : names) {
+                    String sel = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
+                    String[] args = {name, filepath};
+                    try (Cursor c = resolver.query(collection, new String[]{MediaStore.MediaColumns._ID}, sel, args, null)) {
+                        if (c != null && c.moveToFirst()) {
+                            long id = c.getLong(c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
+                            tifUri = ContentUris.withAppendedId(collection, id);
+                            break;
+                        }
+                    }
+                }
+                if (tifUri == null) {
+                    android.widget.Toast.makeText(activity, "tifが見つかりません", android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                try (ParcelFileDescriptor pfd = resolver.openFileDescriptor(tifUri, "r")) {
+                    if (pfd == null) {
+                        android.widget.Toast.makeText(activity, "ファイルを開けません", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    int folEst = SpectrumCalibrator.detectFolNative(pfd.getFd());
+                    if (folEst < 0) {
+                        android.widget.Toast.makeText(activity, "Fol検出失敗", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    int progress = (int) (imgWidth - folEst);
+                    if (progress < 300) progress = 300;
+                    if (progress > 550) progress = 550;
+                    binding.sb1.setProgress(progress);
+                    android.widget.Toast.makeText(activity, "Auto Fol: " + folEst, android.widget.Toast.LENGTH_SHORT).show();
+                } catch (Exception e) {
+                    Log.e("CsvAuto", "auto fol failed", e);
+                    android.widget.Toast.makeText(activity, "Auto失敗: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
+        });
         FloatingActionButton homeButton = binding.homeButton;
         homeButton.setOnClickListener(new View.OnClickListener() {
             @Override
