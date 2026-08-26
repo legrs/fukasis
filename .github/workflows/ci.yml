@@ -2,13 +2,8 @@ name: CI
 
 on:
   push:
-    branches: ["master"]
   pull_request:
   workflow_dispatch:
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   build-test:
@@ -27,14 +22,22 @@ jobs:
         #   macos-latest  -> macos-26 (arm64)   / macos-15
         #   windows-latest-> windows-2025       / windows-2022
         #
-        # 注意: ubuntu-*-arm は AGP の aapt2 に linux-arm64 バイナリが無いため
-        # Androidビルドが不可能です (armランナーで動かす場合はwindows-11-arm
-        # のようにx64エミュレーションされるものに限る)。
+        # 注意: Google は Linux/arm64 向けの Android ツール (SDK / NDK / aapt2) を
+        # まだ配布していない (https://issuetracker.google.com/issues/227219818)。
+        # そのため ubuntu-*-arm では aapt2 / CMake / NDK の x86_64 バイナリが
+        # そのままでは実行できないが、Windows arm64 ランナーが x64 エミュレーションで
+        # 動いているのと同様に、下記の "Enable x86_64 emulation" ステップで
+        # binfmt_misc + qemu-user を有効化して x86_64 ツールを透過実行している。
+        # 将来 Google が Linux/arm64 を公式サポートしたら、このエミュレーションは
+        # 不要になり、ubuntu-*-arm もネイティブでビルドできるようになるはず。
+        # その際は "Enable x86_64 emulation" ステップごと削除してよい。
         # ------------------------------------------------------------------
         os:
           - ubuntu-latest
           - ubuntu-26.04
+          - ubuntu-26.04-arm
           - ubuntu-24.04
+          - ubuntu-24.04-arm
           - macos-latest
           - macos-26
           - macos-26-intel
@@ -46,6 +49,12 @@ jobs:
 
     env:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
+      # ubuntu-*-arm ランナーで qemu-user 経由で実行される x86_64 バイナリ
+      # (aapt2 / clang 等) が共有ライブラリを検索するパス。
+      #   /usr/x86_64-linux-gnu/lib: libc6-amd64-cross 等 (ローダー管理の明文パス)
+      #   /lib/x86_64-linux-gnu 等  : dpkg --add-architecture amd64 で入れた
+      #                               パッケージ (zlib 等)
+      LD_LIBRARY_PATH: /usr/x86_64-linux-gnu/lib:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu
 
     steps:
       - name: Checkout
@@ -66,6 +75,70 @@ jobs:
           # macOS (arm64のmacos-26等) ではemulatorが配布されているため
           # この回避策は適用しない。
           packages: ${{ (startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'windows')) && contains(matrix.os, '-arm') && 'platform-tools' || 'tools platform-tools' }}
+
+      # ubuntu-*-arm ランナー用: Google 配布の Android ツール (aapt2 / CMake /
+      # NDK の clang など) は x86_64 版しか存在しないため、qemu-user で透過実行する。
+      # Windows arm64 ランナーが x64 エミュレーションで動いているのと同じ戦略。
+      - name: Enable x86_64 emulation via binfmt_misc + qemu-user
+        if: startsWith(matrix.os, 'ubuntu') && contains(matrix.os, '-arm')
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          # arm64 ホストに x86_64 (amd64) 用ライブラリ (zlib 等) を共存させる
+          sudo dpkg --add-architecture amd64
+          # arm64 専用ミラー (ubuntu-ports) には amd64 index が無いため、
+          # multiarch 対応ミラー (26.04-arm で実績のある azure ミラー) を追加する
+          CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+          echo "deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu ${CODENAME} main universe multiverse restricted" | sudo tee /etc/apt/sources.list.d/amd64.list > /dev/null
+          echo "deb [arch=amd64] http://azure.archive.ubuntu.com/ubuntu ${CODENAME}-updates main universe multiverse restricted" | sudo tee -a /etc/apt/sources.list.d/amd64.list > /dev/null
+          # 既存の arm64 ソースが amd64 にもマッチしてしまうのを防ぐ
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            grep -q '^Architectures:' /etc/apt/sources.list.d/ubuntu.sources || \
+              sudo sed -i '/^Components:/a Architectures: arm64' /etc/apt/sources.list.d/ubuntu.sources
+          fi
+          [ -f /etc/apt/sources.list ] && sudo sed -i 's/^deb /deb [arch=arm64] /' /etc/apt/sources.list
+          sudo apt-get update
+          # Ubuntu 26.04 で qemu-user-static は仮想パッケージ化され
+          # qemu-user-binfmt に改名されたため、両方に対応する
+          QEMU_PKG=qemu-user-static
+          apt-cache show qemu-user-binfmt > /dev/null 2>&1 && QEMU_PKG=qemu-user-binfmt
+          sudo apt-get install -y --no-install-recommends "$QEMU_PKG"
+          # パッケージの postinst が登録していない場合に備えて手動登録する。
+          # ELF64 かつ e_machine=x86_64 (0x3e) のバイナリを qemu-x86_64 で透過実行する。
+          # x86_64 ツールは動的リンクなので、x86_64 版のランタイム (glibc / libgcc / libstdc++)
+          # も用意する。ローダーは PT_INTERP の絶対パス (/lib64/ld-linux-x86-64.so.2) で
+          # 開かれるため /lib64 にシンボリックリンクを置き、共有ライブラリの検索は
+          # ジョブ全体の LD_LIBRARY_PATH で行う (下記 env 参照)。
+          sudo apt-get install -y --no-install-recommends \
+            libc6-amd64-cross libgcc-s1-amd64-cross libstdc++6-amd64-cross zlib1g:amd64
+          if [ ! -e /lib64/ld-linux-x86-64.so.2 ]; then
+            sudo mkdir -p /lib64
+            LOADER=$(find /usr/x86_64-linux-gnu -name 'ld-linux-x86-64.so.*' 2>/dev/null | head -1)
+            [ -n "$LOADER" ] || LOADER=/usr/x86_64-linux-gnu/lib/ld-linux-x86-64.so.2
+            sudo ln -sfn "$LOADER" /lib64/ld-linux-x86-64.so.2
+          fi
+          if [ ! -e /proc/sys/fs/binfmt_misc/qemu-x86_64 ]; then
+            INTERP=/usr/libexec/qemu-binfmt/x86_64-binfmt-P
+            [ -x "$INTERP" ] || INTERP=/usr/bin/qemu-x86_64-static
+            python3 - "$INTERP" | sudo tee /proc/sys/fs/binfmt_misc/register > /dev/null <<'EOF'
+          import sys
+
+          interp = sys.argv[1]
+          magic = b"\x7fELF" + bytes.fromhex("020101000000000000000002003e00")
+          mask = bytes.fromhex("fffffffffffefe00fffffffffffffffffeffffff")
+          line = (
+              ":qemu-x86_64:M::"
+              + "".join(chr(b) if 0x20 <= b <= 0x7e else f"\\x{b:02x}" for b in magic)
+              + ":"
+              + "".join(chr(b) if 0x20 <= b <= 0x7e else f"\\x{b:02x}" for b in mask)
+              + f":{interp}:OCF"
+          )
+          sys.stdout.write(line)
+          EOF
+          fi
+          cat /proc/sys/fs/binfmt_misc/qemu-x86_64
+          # x86_64 ローダーが qemu 経由で動くことを確認する
+          /lib64/ld-linux-x86-64.so.2 --version
 
       # OpenCV SDKはリポジトリ内に同梱されているので、
       # ローカルのAndroid Studioと同様に local.properties でパスを渡す。
