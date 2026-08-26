@@ -731,4 +731,195 @@ extern "C"
 
         return env->NewStringUTF(ss.str().c_str());
     }
+
+    JNIEXPORT jint JNICALL
+    Java_com_example_ssa_SpectrumCalibrator_detectFolNative(
+        JNIEnv *env, jclass, jint fd)
+    {
+        struct stat sb;
+        if (fstat(fd, &sb) == -1)
+            return -1;
+        size_t fileSize = sb.st_size;
+        if (fileSize == 0)
+            return -1;
+        void *mapAddr = mmap(NULL, fileSize, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (mapAddr == MAP_FAILED)
+            return -1;
+        Mat rawDatMat(1, (int)fileSize, CV_8UC1, mapAddr);
+        Mat img = imdecode(rawDatMat, IMREAD_UNCHANGED);
+        munmap(mapAddr, fileSize);
+        if (img.empty())
+            return -1;
+        int h = img.rows;
+        int w = img.cols;
+        if (h <= 0 || w <= 0)
+            return -1;
+        const int width = 80;
+        const int ofs = 0;
+        int y1 = h / 2 - width / 2 + ofs;
+        int y2 = h / 2 + width / 2 + ofs;
+        if (y1 < 0) y1 = 0;
+        if (y2 > h) y2 = h;
+        if (y1 >= y2)
+            return w - 1;
+        vector<double> colSum(w, 0.0);
+        for (int x = 0; x < w; x++) {
+            double sum = 0;
+            for (int y = y1; y < y2; y++) {
+                double v = 0;
+                if (img.type() == CV_32FC1) {
+                    v = (double)img.at<float>(y, x);
+                } else if (img.type() == CV_16UC1) {
+                    v = (double)img.at<uint16_t>(y, x);
+                } else if (img.type() == CV_8UC1) {
+                    v = (double)img.at<uint8_t>(y, x);
+                } else {
+                    // fallback: read first channel as float
+                    v = (double)img.at<float>(y, x);
+                }
+                if (v < 0) v = 0;
+                sum += v;
+            }
+            colSum[x] = sum;
+        }
+        // 右端 25% から最大を探す (0次光は右端付近にある想定)
+        int start = (int)(w * 0.75);
+        if (start < 0) start = 0;
+        if (start >= w) start = w - 1;
+        int best = start;
+        double bestVal = colSum[start];
+        for (int x = start + 1; x < w; x++) {
+            if (colSum[x] > bestVal) {
+                bestVal = colSum[x];
+                best = x;
+            }
+        }
+        return best;
+    }
+
+    JNIEXPORT jstring JNICALL
+    Java_com_example_ssa_SpectrumCalibrator_detectPeaksNative(
+        JNIEnv *env, jclass, jint fd, jint fol)
+    {
+        struct stat sb;
+        if (fstat(fd, &sb) == -1)
+            return env->NewStringUTF("");
+        size_t fileSize = sb.st_size;
+        if (fileSize == 0)
+            return env->NewStringUTF("");
+        void *mapAddr = mmap(NULL, fileSize, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (mapAddr == MAP_FAILED)
+            return env->NewStringUTF("");
+        Mat rawDatMat(1, (int)fileSize, CV_8UC1, mapAddr);
+        Mat img = imdecode(rawDatMat, IMREAD_UNCHANGED);
+        munmap(mapAddr, fileSize);
+        if (img.empty())
+            return env->NewStringUTF("");
+        int h = img.rows;
+        int w = img.cols;
+        if (h <= 0 || w <= 0)
+            return env->NewStringUTF("");
+        if (fol <= 0 || fol >= w) fol = w - 1;
+        const int width = 80;
+        const int ofs = 0;
+        int y1 = h / 2 - width / 2 + ofs;
+        int y2 = h / 2 + width / 2 + ofs;
+        if (y1 < 0) y1 = 0;
+        if (y2 > h) y2 = h;
+        // 1次元スペクトル抽出: makecsv と同様のロジックを簡略化
+        vector<double> spectrum;
+        spectrum.reserve(fol);
+        for (int x = fol; x > 0; x--) {
+            double sum[3] = {0,0,0};
+            int cnt[3] = {0,0,0};
+            double mean[3] = {0,0,0};
+            // mean
+            for (int y = y1; y < y2; y++) {
+                int ch = 1;
+                if (x % 2 != 0 && y % 2 == 0) ch = 0;
+                else if (x % 2 == 0 && y % 2 != 0) ch = 2;
+                double v = 0;
+                if (img.type() == CV_32FC1) v = (double)img.at<float>(y, x);
+                else if (img.type() == CV_16UC1) v = (double)img.at<uint16_t>(y, x);
+                else if (img.type() == CV_8UC1) v = (double)img.at<uint8_t>(y, x);
+                else v = (double)img.at<float>(y, x);
+                mean[ch] += v;
+                cnt[ch]++;
+            }
+            for (int c = 0; c < 3; c++) if (cnt[c] > 0) mean[c] /= cnt[c];
+            // sigma
+            double sigma[3] = {0,0,0};
+            for (int y = y1; y < y2; y++) {
+                int ch = 1;
+                if (x % 2 != 0 && y % 2 == 0) ch = 0;
+                else if (x % 2 == 0 && y % 2 != 0) ch = 2;
+                double v = 0;
+                if (img.type() == CV_32FC1) v = (double)img.at<float>(y, x);
+                else if (img.type() == CV_16UC1) v = (double)img.at<uint16_t>(y, x);
+                else if (img.type() == CV_8UC1) v = (double)img.at<uint8_t>(y, x);
+                else v = (double)img.at<float>(y, x);
+                sigma[ch] += (v - mean[ch]) * (v - mean[ch]);
+            }
+            for (int c = 0; c < 3; c++) if (cnt[c] > 0) sigma[c] = sqrt(sigma[c] / cnt[c]);
+            const double sigma_thres = 3.0;
+            double pixel[3] = {0,0,0};
+            int cnt2[3] = {cnt[0], cnt[1], cnt[2]};
+            for (int y = y1; y < y2; y++) {
+                int ch = 1;
+                if (x % 2 != 0 && y % 2 == 0) ch = 0;
+                else if (x % 2 == 0 && y % 2 != 0) ch = 2;
+                double v = 0;
+                if (img.type() == CV_32FC1) v = (double)img.at<float>(y, x);
+                else if (img.type() == CV_16UC1) v = (double)img.at<uint16_t>(y, x);
+                else if (img.type() == CV_8UC1) v = (double)img.at<uint8_t>(y, x);
+                else v = (double)img.at<float>(y, x);
+                if (v < 0) v = 0;
+                if (sigma[ch] > 0 && fabs(v - mean[ch]) > sigma_thres * sigma[ch]) {
+                    cnt2[ch]--;
+                } else {
+                    pixel[ch] += v;
+                }
+            }
+            for (int c = 0; c < 3; c++) if (cnt2[c] <= 0) cnt2[c] = 1;
+            double bgr = 0;
+            for (int c = 0; c < 3; c++) bgr += pixel[c] / cnt2[c];
+            spectrum.push_back(bgr);
+        }
+        if (spectrum.size() < 3) return env->NewStringUTF("");
+        // ピーク検出: Java側と同じロジック (閾値 0.15, 最小距離 80)
+        double maxVal = 0;
+        for (double v : spectrum) if (v > maxVal) maxVal = v;
+        if (maxVal <= 0) return env->NewStringUTF("");
+        double thresh = maxVal * 0.15;
+        const int minDist = 80;
+        vector<int> candidates;
+        int n = spectrum.size();
+        for (int i = 1; i < n - 1; i++) {
+            if (spectrum[i] > spectrum[i-1] && spectrum[i] > spectrum[i+1] && spectrum[i] > thresh) {
+                candidates.push_back(i);
+            }
+        }
+        if (candidates.empty()) return env->NewStringUTF("");
+        // NMS
+        vector<int> sorted = candidates;
+        sort(sorted.begin(), sorted.end(), [&](int a, int b){ return spectrum[a] > spectrum[b]; });
+        vector<char> suppressed(n, 0);
+        vector<int> result;
+        for (int idx : sorted) {
+            if (suppressed[idx]) continue;
+            result.push_back(idx);
+            int lo = idx - minDist; if (lo < 0) lo = 0;
+            int hi = idx + minDist; if (hi >= n) hi = n-1;
+            for (int j = lo; j <= hi; j++) if (j != idx) suppressed[j] = 1;
+        }
+        sort(result.begin(), result.end());
+        // result は spectrum 上のインデックス (0 が fol 側)。絶対xに変換: x = fol - idx
+        string out;
+        for (size_t i = 0; i < result.size(); i++) {
+            int absX = fol - result[i];
+            if (i > 0) out += ",";
+            out += to_string(absX);
+        }
+        return env->NewStringUTF(out.c_str());
+    }
 }
