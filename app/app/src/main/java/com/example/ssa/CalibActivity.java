@@ -26,8 +26,10 @@ import android.content.ContentResolver;
 import android.provider.MediaStore;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.IOException;
+import java.util.Locale;
 
 public class CalibActivity extends AppCompatActivity{
 
@@ -57,6 +59,13 @@ public class CalibActivity extends AppCompatActivity{
     EditText[] et;
     FrameLayout[] line;
 
+    private void updateFol(int i){
+        binding.t1.setText("" + i);
+        fol = imgWidth - i;
+        binding.l1.setX(pos[0]+dispWidth2+(-imgWidth + fol + iv2_ofs)*scale);
+        binding.l1.setY(pos[1]-50);
+    }
+
     private void changesb(int j, int i){
         tv[j].setText("" + i);
         t[j] = (imgWidth - i);
@@ -78,7 +87,6 @@ public class CalibActivity extends AppCompatActivity{
         Button openBtn = binding.open;
         Button exportBtn = binding.export;
         SeekBar sb1 = binding.sb1;
-        TextView t1 = binding.t1;
         sb = new SeekBar[]{binding.sb2,binding.sb3,binding.sb4,binding.sb5};
         tv = new TextView[]{binding.t2,binding.t3,binding.t4,binding.t5};
         et = new EditText[]{binding.c1,binding.c2,binding.c3,binding.c4};
@@ -88,7 +96,6 @@ public class CalibActivity extends AppCompatActivity{
         //TextView t4 = binding.t4;
         //SeekBar sb5 = binding.sb5;
         //TextView t5 = binding.t5;
-        FrameLayout l1 = binding.l1;
         line = new FrameLayout[]{binding.l2,binding.l3,binding.l4,binding.l5};
         iv1 = binding.iv1;
         iv1.setScaleType(ImageView.ScaleType.MATRIX);
@@ -160,6 +167,12 @@ public class CalibActivity extends AppCompatActivity{
                     iv2.setImageMatrix(matrix);
 
                     iv2.getLocationOnScreen(pos);
+
+                    // スライダーを動かさずに export しても現在の表示位置が使われるようにする
+                    updateFol(sb1.getProgress());
+                    for (int j = 0; j < sb.length; j++) {
+                        changesb(j, sb[j].getProgress());
+                    }
                 }
 
             }
@@ -173,45 +186,64 @@ public class CalibActivity extends AppCompatActivity{
         });
         exportBtn.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
-                ContentResolver resolver = activity.getContentResolver();
-
-                ContentValues valuesCsv = new ContentValues();
-                Uri uriCsv = Cam.getUri(activity,"Documents/FUKASIS-app/csv/calibdata/", path_et2.getText().toString() + ".csv", "text/csv",resolver , valuesCsv);
-
-                if(uriCsv != null){
-                    try(OutputStream output = activity.getContentResolver().openOutputStream(uriCsv)){
-                        for(int i=0; i<4; i++){
-                            c[i] = Float.parseFloat(et[i].getText().toString());
+                String name = path_et2.getText().toString().trim();
+                if (name.isEmpty()) {
+                    Toast.makeText(activity, "Calibration Data Name を入力してください", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (imgWidth == 0) {
+                    Toast.makeText(activity, "先に open image してください", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                for(int i=0; i<4; i++){
+                    try {
+                        c[i] = Float.parseFloat(et[i].getText().toString().trim());
+                    } catch (NumberFormatException e) {
+                        Toast.makeText(activity, (i + 1) + "番目の波長が数値ではありません", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                }
+                // folとの相対. t[] 自体は書き換えない (書き換えると2回目の export で値が壊れる)
+                int[] rel = new int[4];
+                for(int i=0; i<4; i++){
+                    rel[i] = fol - t[i];
+                }
+                for (int i = 0; i < 4; i++) {
+                    for (int k = i + 1; k < 4; k++) {
+                        if (rel[i] == rel[k]) {
+                            Toast.makeText(activity, "同じ位置に2本以上の線があります。4本を別々の輝線に合わせてください", Toast.LENGTH_LONG).show();
+                            return;
                         }
-                        for(int i=0; i<4; i++){
-                            t[i] = fol - t[i];
-                            //folとの相対
-                        }
-                        String dat = String.format("%d,%d,%d,%d\n%f,%f,%f,%f",t[0],t[1],t[2],t[3],c[0],c[1],c[2],c[3]);
-
-                        output.write(dat.getBytes("UTF-8"));
-
-                        valuesCsv.clear();
-                        valuesCsv.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                        resolver.update(uriCsv, valuesCsv, null, null);
-
-                        Log.d("a", "csv saved at "+uriCsv.toString());
-                    }catch(IOException e){
-                        e.printStackTrace();
-                        resolver.delete(uriCsv, null, null);
                     }
                 }
 
+                ContentResolver resolver = activity.getContentResolver();
+                ContentValues valuesCsv = new ContentValues();
+                Uri uriCsv = Cam.getUri(activity,"Documents/FUKASIS-app/csv/calibdata/", name + ".csv", "text/csv",resolver , valuesCsv);
+                if (uriCsv == null) {
+                    Toast.makeText(activity, "保存先のファイルを作成できません", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                // 小数点がカンマになるロケールでも読めるよう Locale.US で書く
+                String dat = String.format(Locale.US, "%d,%d,%d,%d\n%f,%f,%f,%f",rel[0],rel[1],rel[2],rel[3],c[0],c[1],c[2],c[3]);
+                boolean saved = false;
+                try(OutputStream output = resolver.openOutputStream(uriCsv, "wt")){
+                    output.write(dat.getBytes("UTF-8"));
+                    saved = true;
+                    Log.d("a", "csv saved at "+uriCsv.toString());
+                }catch(IOException e){
+                    e.printStackTrace();
+                }
+                Cam.finishOutput(resolver, uriCsv, valuesCsv, saved);
+                Toast.makeText(activity, saved ? "校正データを保存しました" : "校正データの保存に失敗しました", Toast.LENGTH_SHORT).show();
             }
         });
         sb1.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
-                t1.setText("" + i);
-                fol = imgWidth - i;
-                l1.setX(pos[0]+dispWidth2+(-imgWidth + fol + iv2_ofs)*scale);
-                l1.setY(pos[1]-50);
+                updateFol(i);
             }
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {

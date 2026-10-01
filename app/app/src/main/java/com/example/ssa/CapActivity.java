@@ -83,10 +83,15 @@ public class CapActivity extends AppCompatActivity {
 
     private Cam cam;
 
-    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) {
-        // super.onRequestPermissionResult(requestCode, permissions, grantResults);
-        if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            cam.setupCam();
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != CAMERA_PERMISSION_REQUEST_CODE) {
+            return;
+        }
+        // 許可された場合は, この後の onResume でカメラを開く
+        if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "カメラの権限がないため撮影できません", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -153,14 +158,28 @@ if (isLine) {
                     // Cam.java: setStatusメソッドを使用して、エラーメッセージを表示する
                     return;
                 }
-                int qty = Integer.parseInt(qtyText.getText().toString());
+                int qty;
+                try {
+                    qty = Integer.parseInt(qtyText.getText().toString().trim());
+                } catch (NumberFormatException e) {
+                    qty = 0;
+                }
+                if (qty < 1) {
+                    Cam.setStatus(Cam.StatusType.ERROR, "Please enter a capture quantity of 1 or more.", captureStatusIcon, indicator);
+                    return;
+                }
                 // Log.d("a", String.format("start capture %d ms, %d, %f, %d枚,name:%s", (int) (expo / 1000000L), iso, fd,
                 //         qty, nameText.getText().toString()));
-                cam.startCaptureSession(expo, iso, fd, qty, nameText.getText().toString(), indicator);
-                Log.d("BUTTON", "start capture session！");
                 // captureボタンの透明度を下げる
                 capBtn.setAlpha(0.5f);
                 capBtn.setEnabled(false);
+                if (!cam.startCaptureSession(expo, iso, fd, qty, nameText.getText().toString(), indicator)) {
+                    Cam.setStatus(Cam.StatusType.ERROR, "Camera is not ready. Please try again.", captureStatusIcon, indicator);
+                    capBtn.setAlpha(1.0f);
+                    capBtn.setEnabled(true);
+                    return;
+                }
+                Log.d("BUTTON", "start capture session！");
 
             }
         });
@@ -407,15 +426,11 @@ if (isLine) {
         // cam object
         cam = new Cam(this, camId, soundPool, alarmSound, shatterSound, tv1, tv2, captureStatusIcon);
 
+        // request camera permission (カメラを開くのは onResume で行う)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.CAMERA },
                     CAMERA_PERMISSION_REQUEST_CODE);
-        } else {
-            cam.setupCam();
         }
-        cam.startBackgroundThread();
-        // request camera permission
-        //
 
     }
 
@@ -425,6 +440,11 @@ if (isLine) {
 
         cam.startBackgroundThread();
         cam.setupCam();
+        // onPause で撮影が中断されていたらボタンを押せる状態に戻す
+        if (!cam.isCapturing()) {
+            binding.cap.setAlpha(1.0f);
+            binding.cap.setEnabled(true);
+        }
     }
 
     @Override

@@ -27,8 +27,19 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import android.widget.Toast;
 
 public class DarkActivity extends AppCompatActivity{
+
+    // processImgs は libssa にある. 撮影画面(Cam)を経由せずに来ても読み込まれているようにする
+    static {
+        System.loadLibrary("ssa");
+    }
+
+    // 画像のデコードなど重い処理は UI スレッドの外で行う
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private EditText path_et1; //et=EditText
     private EditText path_et2; //et=EditText
@@ -59,90 +70,69 @@ public class DarkActivity extends AppCompatActivity{
         });
         exportBtn.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
+                String lightName = path_et1.getText().toString().trim();
+                String darkName = path_et2.getText().toString().trim();
+                if (lightName.isEmpty() || darkName.isEmpty()) {
+                    Toast.makeText(activity, "観測とダークフレームの名前を入力してください", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 ContentResolver resolver = getContentResolver();
-                Uri collection = MediaStore.Files.getContentUri("external");
-                Uri uri1 = null;
-                Uri uri2 = null;
-                String filepath = "Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/";
-                String filename = "stacked.tif";
-                String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
-                String[] selectionArgs = new String[]{filename, filepath};
-
-                try(Cursor cursor = resolver.query(
-                            collection,
-                            new String[]{MediaStore.MediaColumns._ID},
-                            selection,
-                            selectionArgs,
-                            null)){
-                    if(cursor != null && cursor.moveToFirst()){
-                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
-                        // exsists
-                        uri1 = ContentUris.withAppendedId(collection, id);
-                        Log.d("a","ありましたよっ！");
-                    }else{
-                        Log.d("a","ないです");
-                    }
-
+                Uri uri1 = Cam.findUri(resolver, "Documents/FUKASIS-app/imgs/" + lightName + "/", "stacked.tif");
+                Uri uri2 = Cam.findUri(resolver, "Documents/FUKASIS-app/imgs/" + darkName + "/", "stacked.tif");
+                // 入力がそろっていないのに空の darked.tif を作ると, csv 画面がそれを読んでしまう
+                if (uri1 == null) {
+                    Toast.makeText(activity, lightName + "/stacked.tif が見つかりません", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if (uri2 == null) {
+                    Toast.makeText(activity, darkName + "/stacked.tif が見つかりません", Toast.LENGTH_LONG).show();
+                    return;
                 }
 
-
-                filepath = "Documents/FUKASIS-app/imgs/" + path_et2.getText().toString() + "/";
-                selectionArgs = new String[]{filename, filepath};
-
-                try(Cursor cursor = resolver.query(
-                            collection,
-                            new String[]{MediaStore.MediaColumns._ID},
-                            selection,
-                            selectionArgs,
-                            null)){
-                    if(cursor != null && cursor.moveToFirst()){
-                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
-                        // exsists
-                        uri2 = ContentUris.withAppendedId(collection, id);
-                        Log.d("a","ありましたよっ！");
-                    }else{
-                        Log.d("a","ないです");
-                    }
-
-                }
-
-
-                ContentValues values = new ContentValues();
-                Uri uri3 = Cam.getUri(activity,"Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/", "darked.tif", "image/tiff",resolver , values);
-
-
-                try{
-                    if(uri1 != null && uri2 != null){
-                        ParcelFileDescriptor pfd1 = resolver.openFileDescriptor(uri1, "r");
-                        ParcelFileDescriptor pfd2 = resolver.openFileDescriptor(uri2, "r");
-                        ParcelFileDescriptor pfd3 = resolver.openFileDescriptor(uri3, "w");
-
-                        if(pfd1 != null && pfd2 != null){
-                            int fd1 = pfd1.getFd();
-                            int fd2 = pfd2.getFd();
-                            int fd3 = pfd3.getFd();
-                            processImgs(fd1, fd2, fd3);
-
-                            pfd1.close();
-                            pfd2.close();
-                            pfd3.close();
-
-                            values.clear();
-                            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                            resolver.update(uri3, values, null, null);
-
-                            Log.d("a", "darked");
-
-                        }
-
-                    }
-                }catch(IOException e){
-                    e.printStackTrace();
-                }
+                exportBtn.setEnabled(false);
+                executor.execute(() -> {
+                    String err = subtractDark(resolver, lightName, uri1, uri2);
+                    runOnUiThread(() -> {
+                        exportBtn.setEnabled(true);
+                        Toast.makeText(activity, err.isEmpty() ? "darked.tif を保存しました" : "失敗: " + err, Toast.LENGTH_LONG).show();
+                    });
+                });
             }
         });
 
 
+    }
+
+    // darked.tif を書き出す. 成功時は空文字列, 失敗時はエラーメッセージ
+    private String subtractDark(ContentResolver resolver, String lightName, Uri lightUri, Uri darkUri) {
+        ContentValues values = new ContentValues();
+        Uri uri3 = Cam.getUri(activity,"Documents/FUKASIS-app/imgs/" + lightName + "/", "darked.tif", "image/tiff",resolver , values);
+        if (uri3 == null) {
+            return "darked.tif を作成できません";
+        }
+        String err;
+        try (ParcelFileDescriptor pfd1 = resolver.openFileDescriptor(lightUri, "r");
+             ParcelFileDescriptor pfd2 = resolver.openFileDescriptor(darkUri, "r");
+             ParcelFileDescriptor pfd3 = resolver.openFileDescriptor(uri3, "wt")) {
+            if (pfd1 == null || pfd2 == null || pfd3 == null) {
+                err = "ファイルを開けません";
+            } else {
+                err = processImgs(pfd1.getFd(), pfd2.getFd(), pfd3.getFd());
+            }
+        } catch (IOException | RuntimeException e) {
+            e.printStackTrace();
+            err = "ファイルを開けません: " + e.getMessage();
+        }
+        // 失敗したら中途半端な darked.tif を残さない (残すと csv 画面がそれを優先して読む)
+        Cam.finishOutput(resolver, uri3, values, err.isEmpty());
+        Log.d("a", err.isEmpty() ? "darked" : err);
+        return err;
+    }
+
+    @Override
+    protected void onDestroy(){
+        super.onDestroy();
+        executor.shutdown();
     }
     @Override
     protected void onResume(){
@@ -155,5 +145,6 @@ public class DarkActivity extends AppCompatActivity{
     }
 
 
+    // 成功時は空文字列, 失敗時はエラーメッセージを返す
     public native String processImgs(int fd1, int fd2, int fd3);
 }

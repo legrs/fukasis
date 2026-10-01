@@ -174,3 +174,25 @@ jobs:
             app/app/build/reports/tests/**
             app/app/build/reports/lint-*
           if-no-files-found: ignore
+  # native-lib.cpp (makecsv / ダーク減算 / スタック保存) を host の OpenCV でビルドし,
+  # 合成データで検証する. Android の NDK ビルドとは別に, 計算ロジックの回帰を検出するためのもの
+  native-test:
+    name: Native unit test (host OpenCV)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install OpenCV
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libopencv-dev pkg-config
+
+      - name: Build & run
+        working-directory: app/app/src/test/cpp
+        run: |
+          g++ -std=c++17 -O1 -g -Wall -Wextra -Wno-unused-parameter \
+            -fsanitize=address,undefined -fno-sanitize-recover=undefined \
+            -I stubs $(pkg-config --cflags opencv4) \
+            native_lib_test.cpp -o native_lib_test $(pkg-config --libs opencv4)
+          ./native_lib_test

@@ -13,55 +13,457 @@
 #include <android/native_window_jni.h>
 #include <android/log.h>
 #include <android/bitmap.h>
-#include <jni.h>
-#include <jni.h>
-#include <fstream>
-#include <vector>
-#include <stdio.h>
+#include <algorithm>
+#include <array>
+#include <cerrno>
+#include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <limits>
 #include <sstream>
-#include <opencv2/opencv.hpp>
-#include <sys/mman.h>
+#include <vector>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #define LOG_TAG "CameraNative"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define WIDTH 640
-#define HEIGHT 640
 
 using namespace cv;
 using namespace std;
 
-static Mat stacked; // CV_32FC1
+static Mat stacked; // CV_32FC1 (合計値. 保存時に capCount で割って平均にする)
 static int capCount;
 static int width;
 static int height;
 
-extern "C"
+namespace
 {
-    // FDにバイナリデータを書き込むヘルパー関数
-    bool writeMatToFd(int fd, const Mat &mat, const std::string &ext, const std::vector<int> &params)
+    // スペクトルを切り出す範囲 (fol からの距離, pixel)
+    const int T_MIN = 1800;
+    const int T_MAX = 2800;
+    // 画像中央から縦に積算する帯の幅 (pixel)
+    const int BAND_WIDTH = 80;
+    const double SIGMA_THRES = 3.0;
+
+    // fd の中身を先頭から全部読む.
+    // pread なので fd のオフセットは動かさない. pipe など seek できない fd は read にフォールバック
+    bool readAllFromFd(int fd, vector<uchar> &out)
     {
-        std::vector<uchar> buffer;
-
-        // 1. 指定フォーマットでエンコード (メモリ上でバイナリ化)
-        // extensionは ".tif" や ".jpg"
-        if (!imencode(ext, mat, buffer, params))
+        out.clear();
+        vector<uchar> chunk(64 * 1024);
+        off_t offset = 0;
+        bool seekable = true;
+        for (;;)
         {
-            return false;
+            ssize_t n = seekable ? pread(fd, chunk.data(), chunk.size(), offset)
+                                 : read(fd, chunk.data(), chunk.size());
+            if (n < 0)
+            {
+                if (errno == EINTR)
+                    continue;
+                if (seekable && errno == ESPIPE && offset == 0)
+                {
+                    seekable = false;
+                    continue;
+                }
+                return false;
+            }
+            if (n == 0)
+                break;
+            out.insert(out.end(), chunk.begin(), chunk.begin() + n);
+            offset += n;
         }
-
-        // 2. FDに書き込み
-        // write(ファイル記述子, データポインタ, サイズ)
-        ssize_t written = write(fd, buffer.data(), buffer.size());
-
-        // データが確実にディスクに書き込まれるように同期 (任意)
-        fsync(fd);
-
-        return (written == buffer.size());
+        return true;
     }
 
+    // write() は一度に全部書けるとは限らないので書き切るまで回す
+    bool writeAllToFd(int fd, const uchar *data, size_t size)
+    {
+        size_t done = 0;
+        while (done < size)
+        {
+            ssize_t n = write(fd, data + done, size - done);
+            if (n < 0)
+            {
+                if (errno == EINTR)
+                    continue;
+                return false;
+            }
+            done += (size_t)n;
+        }
+        return true;
+    }
+
+    // FDにバイナリデータを書き込むヘルパー関数
+    bool writeMatToFd(int fd, const Mat &mat, const string &ext, const vector<int> &params)
+    {
+        vector<uchar> buffer;
+
+        // 指定フォーマットでエンコード (メモリ上でバイナリ化). extensionは ".tif" や ".jpg"
+        if (!imencode(ext, mat, buffer, params))
+            return false;
+        if (!writeAllToFd(fd, buffer.data(), buffer.size()))
+            return false;
+
+        // データが確実にディスクに書き込まれるように同期 (FUSE 等で失敗しても致命的ではない)
+        if (fsync(fd) == -1)
+            LOGE("fsync failed: %d", errno);
+        return true;
+    }
+
+    vector<int> tiffParams()
+    {
+        return {IMWRITE_TIFF_COMPRESSION, 1}; // no comp
+    }
+
+    // 画像ファイルを fd から読み, 1ch の CV_32F に揃えて返す. 失敗時は空の Mat.
+    // imdecode は CV_8U の1次元バッファしか受け付けないので CV_8UC1 で包む
+    Mat decodeImageFd(int fd)
+    {
+        vector<uchar> bytes;
+        if (!readAllFromFd(fd, bytes) || bytes.empty())
+            return Mat();
+        Mat img = imdecode(Mat(1, (int)bytes.size(), CV_8UC1, bytes.data()), IMREAD_UNCHANGED);
+        if (img.empty() || img.channels() != 1)
+            return Mat();
+        if (img.depth() != CV_32F)
+        {
+            Mat f;
+            img.convertTo(f, CV_32F);
+            return f;
+        }
+        return img;
+    }
+
+    bool readLinesFromFd(int fd, vector<string> &lines)
+    {
+        vector<uchar> bytes;
+        if (!readAllFromFd(fd, bytes))
+            return false;
+        lines.clear();
+        string cur;
+        for (uchar c : bytes)
+        {
+            if (c == '\n')
+            {
+                lines.push_back(cur);
+                cur.clear();
+            }
+            else if (c != '\r')
+            {
+                cur.push_back((char)c);
+            }
+        }
+        if (!cur.empty())
+            lines.push_back(cur);
+        return true;
+    }
+
+    bool isBlank(const string &s)
+    {
+        return s.find_first_not_of(" \t") == string::npos;
+    }
+
+    // カンマ区切りの数値を全部パースする. 1つでも数値でなければ false (例外は投げない)
+    bool parseNumbers(const string &line, vector<double> &out)
+    {
+        out.clear();
+        stringstream ss(line);
+        string field;
+        while (getline(ss, field, ','))
+        {
+            const char *begin = field.c_str();
+            char *end = nullptr;
+            errno = 0;
+            double v = strtod(begin, &end);
+            if (end == begin || errno == ERANGE || !std::isfinite(v))
+                return false;
+            while (*end == ' ' || *end == '\t')
+                end++;
+            if (*end != '\0')
+                return false;
+            out.push_back(v);
+        }
+        return !out.empty();
+    }
+
+    // b g r
+    int bayerChannel(int x, int y)
+    {
+        if (x % 2 != 0 && y % 2 == 0)
+            return 0;
+        if (x % 2 == 0 && y % 2 != 0)
+            return 2;
+        return 1;
+    }
+
+    string subtractDark(int fdLight, int fdDark, int fdOut)
+    {
+        Mat lightMat = decodeImageFd(fdLight);
+        if (lightMat.empty())
+            return "観測画像(stacked.tif)を読み込めません";
+        Mat darkMat = decodeImageFd(fdDark);
+        if (darkMat.empty())
+            return "ダーク画像(stacked.tif)を読み込めません";
+        if (lightMat.size() != darkMat.size())
+            return "観測画像とダーク画像のサイズが違います";
+
+        Mat result = lightMat - darkMat;
+        if (!writeMatToFd(fdOut, result, ".tif", tiffParams()))
+            return "darked.tif の書き込みに失敗しました";
+        return "";
+    }
+
+    string makeCsv(int fdImg, int fdCalib, int fdMeta, int fdSensit, int fdOut, int fol)
+    {
+        // img ----------------------------------------------------------
+        Mat img = decodeImageFd(fdImg);
+        if (img.empty())
+            return "画像を読み込めません";
+        const int h = img.rows;
+        const int w = img.cols;
+        if (fol <= 0 || fol >= w)
+            return "0次光の位置(fol)が画像の範囲外です: " + to_string(fol);
+
+        vector<string> lines;
+        vector<double> nums;
+
+        // calibdata ----------------------------------------------------------
+        if (!readLinesFromFd(fdCalib, lines))
+            return "校正データを読めません";
+        vector<vector<double>> calibRows;
+        for (const string &line : lines)
+        {
+            if (isBlank(line))
+                continue;
+            if (!parseNumbers(line, nums) || nums.size() < 4)
+                return "校正データの形式が不正です: " + line;
+            calibRows.push_back(nums);
+            if (calibRows.size() == 2)
+                break;
+        }
+        if (calibRows.size() < 2)
+            return "校正データがない";
+
+        double t_ref[4];
+        double c_ref[4];
+        double i_deno[4];
+        for (int i = 0; i < 4; i++)
+        {
+            t_ref[i] = calibRows[0][i];
+            c_ref[i] = calibRows[1][i];
+        }
+        for (int j = 0; j < 4; j++)
+        {
+            i_deno[j] = 1.0;
+            for (int k = 0; k < 4; k++)
+            {
+                if (k != j)
+                {
+                    i_deno[j] *= (t_ref[j] - t_ref[k]);
+                }
+            }
+            if (i_deno[j] == 0)
+                return "校正データの画素位置が重複しています";
+        }
+
+        LOGI("t_ref : %f , %f , %f , %f", t_ref[0], t_ref[1], t_ref[2], t_ref[3]);
+        LOGI("c_ref : %f , %f , %f , %f", c_ref[0], c_ref[1], c_ref[2], c_ref[3]);
+
+        // observation infomation --------------------------------------------------------------
+        if (!readLinesFromFd(fdMeta, lines) || lines.empty())
+            return "めただだ、ないです";
+        const string header = lines[0];
+
+        // sensitivity curve --------------------------------------------------------------
+        // 先頭2行はヘッダ. 各行 wavelength, b, g, r (5列目以降は無視)
+        if (!readLinesFromFd(fdSensit, lines))
+            return "感度データを読めません";
+        vector<array<double, 2>> sensit; // {wavelength, b+g+r}
+        for (size_t i = 2; i < lines.size(); i++)
+        {
+            if (isBlank(lines[i]))
+                continue;
+            if (!parseNumbers(lines[i], nums) || nums.size() < 4)
+                return "感度データの形式が不正です(" + to_string(i + 1) + "行目)";
+            sensit.push_back({nums[0], nums[1] + nums[2] + nums[3]});
+        }
+        if (sensit.size() < 2)
+            return "感度データが足りません";
+        sort(sensit.begin(), sensit.end(),
+             [](const array<double, 2> &a, const array<double, 2> &b) { return a[0] < b[0]; });
+
+        // accumulate 縦 =======================
+        int y1 = h / 2 - BAND_WIDTH / 2;
+        int y2 = h / 2 + BAND_WIDTH / 2;
+        if (y1 < 0)
+            y1 = 0;
+        if (y2 > h)
+            y2 = h;
+
+        vector<double> pure[3];
+        for (int x = fol; x > 0; x--)
+        {
+            int count[3] = {0, 0, 0};
+            double mean[3] = {0, 0, 0};
+            double sigma[3] = {0, 0, 0};
+            double sum[3] = {0, 0, 0};
+            // get mean
+            for (int y = y1; y < y2; y++)
+            {
+                int ch = bayerChannel(x, y);
+                mean[ch] += (double)img.at<float>(y, x);
+                count[ch]++;
+            }
+            for (int ch = 0; ch < 3; ch++)
+                if (count[ch] > 0)
+                    mean[ch] /= (double)count[ch];
+            // get variance(sigma)
+            for (int y = y1; y < y2; y++)
+            {
+                int ch = bayerChannel(x, y);
+                double val = (double)img.at<float>(y, x);
+                sigma[ch] += (val - mean[ch]) * (val - mean[ch]);
+            }
+            for (int ch = 0; ch < 3; ch++)
+                if (count[ch] > 0)
+                    sigma[ch] = sqrt(sigma[ch] / (double)count[ch]);
+            // accumulate with sigma clipping
+            for (int y = y1; y < y2; y++)
+            {
+                int ch = bayerChannel(x, y);
+                double val = (double)img.at<float>(y, x);
+                if (SIGMA_THRES * sigma[ch] < fabs(val - mean[ch]))
+                {
+                    count[ch]--;
+                }
+                else
+                {
+                    if (val < 0)
+                        val = 0;
+                    sum[ch] += val;
+                }
+            }
+            for (int ch = 0; ch < 3; ch++)
+                pure[ch].push_back(sum[ch] / (double)max(count[ch], 1));
+        }
+        const int size = (int)pure[0].size();
+
+        // bとrの欠落を埋めて、minをget =======================
+        double minv[3];
+        fill(minv, minv + 3, numeric_limits<double>::max());
+        for (int i = 1; i < size - 1; i++)
+        {
+            // bayer arrayにより欠落が生じるから
+            for (int c : {0, 2})
+            {
+                if (pure[c][i] == 0)
+                    pure[c][i] = (pure[c][i - 1] + pure[c][i + 1]) / 2;
+            }
+            if (T_MIN < i && i < T_MAX)
+            {
+                for (int c = 0; c < 3; c++)
+                    minv[c] = min(minv[c], pure[c][i]);
+            }
+        }
+
+        // wavelength,sensitivity calibration & get max =======================
+        vector<double> wavelengths;
+        vector<double> intensities;
+        double maxv = 0;
+        for (int i = T_MIN + 1; i < T_MAX && i < size; i++)
+        {
+            // langange interpolation | t -> t_p (cubic)
+            const double t = i;
+            double t_p = 0;
+            for (int j = 0; j < 4; j++)
+            {
+                double i_nume = 1.0;
+                for (int k = 0; k < 4; k++)
+                {
+                    if (k != j)
+                        i_nume *= (t - t_ref[k]);
+                }
+                t_p += c_ref[j] * i_nume / i_deno[j];
+            }
+            if (!(400 < t_p && t_p < 700))
+                continue;
+
+            // 感度を線形補間 (表の範囲外は端の値を使う)
+            auto hi = upper_bound(sensit.begin(), sensit.end(), t_p,
+                                  [](double v, const array<double, 2> &e) { return v < e[0]; });
+            double s;
+            if (hi == sensit.begin())
+            {
+                s = sensit.front()[1];
+            }
+            else if (hi == sensit.end())
+            {
+                s = sensit.back()[1];
+            }
+            else
+            {
+                auto lo = hi - 1;
+                s = (*lo)[1] + (t_p - (*lo)[0]) * ((*hi)[1] - (*lo)[1]) / ((*hi)[0] - (*lo)[0]);
+            }
+            if (!(s > 0))
+                continue; // 感度0の波長は補正できない
+
+            double bgr = 0;
+            for (int c = 0; c < 3; c++)
+            {
+                double v = pure[c][i] - minv[c];
+                if (v > 0)
+                    bgr += v;
+            }
+            bgr /= s;
+            maxv = max(maxv, bgr);
+            wavelengths.push_back(t_p);
+            intensities.push_back(bgr);
+        }
+        if (wavelengths.empty())
+            return "400-700nm に入る点がありません (校正データと fol を確認してください)";
+        if (!(maxv > 0))
+            return "スペクトルの強度が0です";
+
+        // export ===========================
+        stringstream spectrum;
+        spectrum << header << "\n";
+        spectrum << "wavelength/nm,relative intensity(0.0 -- 1.0)" << "\n";
+        for (size_t i = 0; i < wavelengths.size(); i++)
+        {
+            spectrum << wavelengths[i] << "," << intensities[i] / maxv << "\n";
+        }
+        const string out = spectrum.str();
+        if (!writeAllToFd(fdOut, (const uchar *)out.data(), out.size()))
+            return "スペクトルの書き込みに失敗しました";
+        if (fsync(fdOut) == -1)
+            LOGE("fsync failed: %d", errno);
+        return "";
+    }
+
+    // C++ の例外を JNI の外に出さない (出すとプロセスごと abort する)
+    template <typename F>
+    jstring runGuarded(JNIEnv *env, F f)
+    {
+        string err;
+        try
+        {
+            err = f();
+        }
+        catch (const std::exception &e)
+        {
+            err = string("例外: ") + e.what();
+        }
+        if (!err.empty())
+            LOGE("%s", err.c_str());
+        return env->NewStringUTF(err.c_str());
+    }
+}
+
+extern "C"
+{
     JNIEXPORT void JNICALL
     Java_com_example_ssa_Cam_prepare(
         JNIEnv *env,
@@ -76,6 +478,7 @@ extern "C"
         capCount = 0;
     }
 
+    // 成功時は空文字列, 失敗時はエラーメッセージを返す
     JNIEXPORT jstring JNICALL
     Java_com_example_ssa_Cam_accumulateImg(
         JNIEnv *env,
@@ -84,49 +487,27 @@ extern "C"
         jint rowStride,
         jint bufferSize)
     {
+        return runGuarded(env, [&]() -> string
+                          {
+            if (buff == nullptr)
+                return "ぬるぽ";
+            uint8_t *dataPtr = (uint8_t *)env->GetDirectBufferAddress(buff);
+            if (dataPtr == nullptr)
+                return "ぬるぽ1";
+            if (stacked.empty() || width <= 0 || height <= 0)
+                return "えっと…empty…なん、ですけど…";
+            if ((int64_t)bufferSize < (int64_t)(height - 1) * rowStride + (int64_t)width * 2)
+                return "サイズが小さすぎるんだよね";
 
-        std::stringstream ss;
-        if (buff == nullptr)
-        {
-            ss << "ぬるぽ" << endl;
-            return env->NewStringUTF(ss.str().c_str());
-        }
-        uint8_t *dataPtr = (uint8_t *)env->GetDirectBufferAddress(buff);
-        if (dataPtr == nullptr)
-        {
-            ss << "ぬるぽ1" << endl;
-            return env->NewStringUTF(ss.str().c_str());
-        }
-        if (bufferSize < (height - 1) * rowStride + (width * 2))
-        {
-            ss << "サイズが小さすぎるんだよね" << endl;
-            return env->NewStringUTF(ss.str().c_str());
-        }
-
-        Mat rawMat(height, width, CV_16UC1, (void *)dataPtr, rowStride);
-
-        ss << "値ですか？えっと…" << rawMat.at<uint16_t>(0, 0) << "、になって、ますけど…" << endl;
-        // accumulate()がCV_16UC1非対応なので
-        Mat rawMat32;
-        rawMat.convertTo(rawMat32, CV_32FC1);
-        rawMat.release();
-
-        if (stacked.empty())
-        {
-            ss << "えっと…empty…なん、ですけど…" << endl;
-            return env->NewStringUTF(ss.str().c_str());
-        }
-        if (stacked.size() != rawMat32.size())
-        {
-            ss << "サイズがちがうです…" << endl;
-            return env->NewStringUTF(ss.str().c_str());
-        }
-        accumulate(rawMat32, stacked);
-        ss << "stackedの方は…" << stacked.at<float>(0, 0) << "、えす" << endl;
-        capCount++;
-
-        ss << "accumulateせいこう！です!" << endl;
-        return env->NewStringUTF(ss.str().c_str());
+            Mat rawMat(height, width, CV_16UC1, (void *)dataPtr, rowStride);
+            // accumulate()がCV_16UC1非対応なので
+            Mat rawMat32;
+            rawMat.convertTo(rawMat32, CV_32FC1);
+            if (stacked.size() != rawMat32.size())
+                return "サイズがちがうです…";
+            accumulate(rawMat32, stacked);
+            capCount++;
+            return ""; });
     }
 
     // JNIEXPORT jbyteArray JNICALL
@@ -181,42 +562,35 @@ extern "C"
     //     return resultByte;
     // }
 
+    // 成功時は空文字列, 失敗時はエラーメッセージを返す
     JNIEXPORT jstring JNICALL
     Java_com_example_ssa_Cam_saveImg(
         JNIEnv *env, jobject,
         jint fdTiff,
         jint fdJpeg)
     {
+        return runGuarded(env, [&]() -> string
+                          {
+            if (stacked.empty() || capCount <= 0)
+                return "スタックされた画像がありません";
 
-        stringstream ss;
+            // 合計ではなく平均を保存する (枚数の違う観測/ダーク同士でも減算できるように)
+            Mat mean = stacked / (double)capCount;
+            if (!writeMatToFd(fdTiff, mean, ".tif", tiffParams()))
+                return "stacked.tif の書き込みに失敗しました";
 
-        vector<int> tiffParams;
-        tiffParams.push_back(IMWRITE_TIFF_COMPRESSION);
-        tiffParams.push_back(1); // no comp
+            // 32bit -> 8bit (0-255 に正規化) してデモザイク
+            Mat tmp;
+            Mat displayMat;
+            normalize(mean, tmp, 0, 255, NORM_MINMAX, CV_8UC1);
+            cvtColor(tmp, displayMat, COLOR_BayerGR2BGR);
 
-        // FDへ書き込み
-        writeMatToFd(fdTiff, stacked, ".tif", tiffParams);
-
-        Mat displayMat;
-
-        // 32bit -> 8bit (0.0-1.0 を 0-255 に)
-        Mat tmp;
-        normalize(stacked, tmp, 0, 255, NORM_MINMAX, CV_8UC1);
-        cvtColor(tmp, displayMat, COLOR_BayerGR2BGR);
-
-        ss << "stackedの値は、" << stacked.at<float>(0, 0) << "、ですよ！" << endl;
-        ss << "tmpの値は、" << to_string(tmp.at<unsigned char>(0, 0)) << "、ですよ！" << endl;
-        ss << "displayMatの値は…" << to_string(displayMat.at<Vec3b>(0, 0)[0]) << "、ですよ…………疲れました" << endl;
-
-        vector<int> jpgParams;
-        jpgParams.push_back(IMWRITE_JPEG_QUALITY);
-        jpgParams.push_back(90);
-
-        // FDへ書き込み
-        writeMatToFd(fdJpeg, displayMat, ".jpg", jpgParams);
-
-        return env->NewStringUTF(ss.str().c_str());
+            if (!writeMatToFd(fdJpeg, displayMat, ".jpg", {IMWRITE_JPEG_QUALITY, 90}))
+                return "stacked.jpg の書き込みに失敗しました";
+            return ""; });
     }
+
+    // 成功時は空文字列, 失敗時はエラーメッセージを返す
     JNIEXPORT jstring JNICALL
     Java_com_example_ssa_DarkActivity_processImgs(
         JNIEnv *env, jobject,
@@ -224,61 +598,10 @@ extern "C"
         jint fd2,
         jint fd3)
     {
-
-        stringstream ss;
-        ss << " ";
-
-        // get file size
-        struct stat sb;
-        if (fstat(fd1, &sb) == -1)
-            return env->NewStringUTF("fd1 error");
-        size_t fileSize = sb.st_size;
-
-        // ファイルをメモリ空間に投影
-        void *mapAddr = mmap(NULL, fileSize, PROT_READ, MAP_PRIVATE, fd1, 0);
-        if (mapAddr == MAP_FAILED)
-            return env->NewStringUTF("fd1 map failed");
-        Mat rawDatMat(1, fileSize, CV_32FC1, mapAddr);
-        Mat lightMat = imdecode(rawDatMat, IMREAD_UNCHANGED);
-        // release
-        munmap(mapAddr, fileSize);
-
-        if (fstat(fd2, &sb) == -1)
-            return env->NewStringUTF("fd2 error");
-        fileSize = sb.st_size;
-
-        mapAddr = mmap(NULL, fileSize, PROT_READ, MAP_PRIVATE, fd2, 0);
-        if (mapAddr == MAP_FAILED)
-            return env->NewStringUTF("fd2 map failed");
-        rawDatMat = Mat(1, fileSize, CV_32FC1, mapAddr);
-        Mat darkMat = imdecode(rawDatMat, IMREAD_UNCHANGED);
-        // release
-        munmap(mapAddr, fileSize);
-
-        if (!lightMat.empty() && !darkMat.empty())
-        {
-
-            Mat result = lightMat - darkMat;
-            // for debug
-            // Mat result16;
-            // result.convertTo(result16, CV_16UC1);
-
-            vector<int> tiffParams;
-            tiffParams.push_back(IMWRITE_TIFF_COMPRESSION);
-            tiffParams.push_back(1); // no comp
-
-            // FDへ書き込み
-            writeMatToFd(fd3, result, ".tif", tiffParams);
-        }
-        else
-        {
-            ss << "emptyなんです" << endl;
-            LOGE("fd1 error");
-        }
-
-        return env->NewStringUTF(ss.str().c_str());
+        return runGuarded(env, [&]() { return subtractDark(fd1, fd2, fd3); });
     }
 
+    // 成功時は空文字列, 失敗時はエラーメッセージを返す
     JNIEXPORT jstring JNICALL
     Java_com_example_ssa_CsvActivity_makecsv(
         JNIEnv *env, jobject,
@@ -289,446 +612,6 @@ extern "C"
         jint fd5,
         jint fol)
     {
-
-        stringstream ss;
-
-        double t_ref[4];
-        double c_ref[4];
-        double i_deno[4];
-        vector<double> sensit_dat[5];
-
-        const int T_MIN = 1800;
-        const int T_MAX = 2800;
-
-        // img ----------------------------------------------------------
-
-        // get file size
-        struct stat sb;
-        if (fstat(fd1, &sb) == -1)
-            return env->NewStringUTF("fd1 error");
-        size_t fileSize = sb.st_size;
-        // ファイルをメモリ空間に投影
-        void *mapAddr = mmap(NULL, fileSize, PROT_READ, MAP_PRIVATE, fd1, 0);
-        if (mapAddr == MAP_FAILED)
-            return env->NewStringUTF("fd1 map filed");
-        Mat rawDatMat(1, fileSize, CV_32FC1, mapAddr);
-        Mat img = imdecode(rawDatMat, IMREAD_UNCHANGED);
-        // release
-        munmap(mapAddr, fileSize);
-
-        FILE *file;
-
-        char buff[256];
-
-        // calibdata ----------------------------------------------------------
-        // double closeしないためにduplicate
-        int fd2_p = dup(fd2);
-        if (fd2_p == -1)
-            return env->NewStringUTF("fd2 dup filed");
-
-        file = fdopen(fd2_p, "r");
-        if (file == nullptr)
-        {
-            // とじる！！
-            close(fd2_p);
-            return env->NewStringUTF("");
-        }
-
-        if (fgets(buff, sizeof(buff), file) != nullptr)
-        {
-            string dat(buff);
-            stringstream dats(dat);
-
-            string tmp;
-            for (int i = 0; i < 4; i++)
-            {
-                getline(dats, tmp, ',');
-                t_ref[i] = stod(tmp);
-            }
-        }
-        else
-        {
-            return env->NewStringUTF("校正データがない");
-        }
-        if (fgets(buff, sizeof(buff), file) != nullptr)
-        {
-            string dat(buff);
-            stringstream dats(dat);
-
-            string tmp;
-            for (int i = 0; i < 4; i++)
-            {
-                getline(dats, tmp, ',');
-                c_ref[i] = stod(tmp);
-            }
-        }
-        else
-        {
-            return env->NewStringUTF("校正データがない");
-        }
-        fclose(file);
-
-        for (int j = 0; j < 4; j++)
-        {
-            i_deno[j] = 1.0;
-            for (int k = 0; k < 4; k++)
-            {
-                if (k != j)
-                {
-                    i_deno[j] *= (t_ref[j] - t_ref[k]);
-                }
-            }
-        }
-
-        LOGI("t_ref : %f , %f , %f , %f", t_ref[0], t_ref[1], t_ref[2], t_ref[3]);
-        LOGI("c_ref : %f , %f , %f , %f", c_ref[0], c_ref[1], c_ref[2], c_ref[3]);
-
-        // observation infomation --------------------------------------------------------------
-
-        string header;
-        // double closeしないためにduplicate
-        int fd3_p = dup(fd3);
-        if (fd3_p == -1)
-            return env->NewStringUTF("fd3 dup filed");
-
-        file = fdopen(fd3_p, "r");
-        if (file == nullptr)
-        {
-            // とじる！！
-            close(fd3_p);
-            return env->NewStringUTF("fd3_p file null");
-        }
-
-        buff[256];
-        if (fgets(buff, sizeof(buff), file) != nullptr)
-        {
-            header = string(buff);
-        }
-        else
-        {
-            return env->NewStringUTF("めただだ、ないです");
-        }
-        fclose(file);
-
-        // sensitivity curve^ --------------------------------------------------------------
-
-        int fd4_p = dup(fd4);
-        if (fd4_p == -1)
-            return env->NewStringUTF("fd3 dup filed");
-
-        file = fdopen(fd4_p, "r");
-        if (file == nullptr)
-        {
-            // とじる！！
-            close(fd4_p);
-            return env->NewStringUTF("fd3_p file null");
-        }
-
-        buff[256];
-
-        int index = 0;
-        string tmp = "";
-        fgets(buff, sizeof(buff), file);
-        fgets(buff, sizeof(buff), file);
-        // substitue data to vector
-        while (fgets(buff, sizeof(buff), file) != nullptr)
-        {
-            tmp = string(buff);
-            LOGI("%s", tmp.c_str());
-            string dat_string[4];
-            int size = tmp.size();
-            // split
-            int j = 0;
-            for (int i = 0; i < size; i++)
-            {
-                if (tmp[i] == ',')
-                {
-                    j++;
-                }
-                else
-                {
-                    dat_string[j].push_back(tmp[i]);
-                }
-            }
-
-            for (int i = 0; i < 4; i++)
-            {
-                // substiture
-                sensit_dat[i].push_back(stof(dat_string[i]));
-            }
-            sensit_dat[4].push_back(sensit_dat[1][index] + sensit_dat[2][index] + sensit_dat[3][index]);
-            index++;
-        }
-        fclose(file);
-
-        // write as csv --------------------------------------------------------------
-
-        ss << header << endl;
-
-        /*
-
-
-        // double closeしないためにduplicate
-        int fd4_p = dup(fd4);
-        if(fd4_p == -1) return env->NewStringUTF("fd4 dup filed");
-
-        file = fdopen(fd4_p, "w");
-        if(file == nullptr){
-            // とじる！！
-            close(fd4_p);
-            return env->NewStringUTF("");
-        }
-
-        fprintf(fd4, "hello");
-
-        fflush(file);
-        fsync(fd4_p);
-        fclose(file);
-        */
-
-        stringstream spectrum;
-
-        spectrum << header << endl;
-        spectrum << "wavelength/nm,relative intensity(0.0 -- 1.0)" << endl;
-
-        vector<double> pure[3];
-        double min[3] = {65536, 65536, 65536};
-        double max = 0;
-
-        // accumulate 縦 =======================
-
-        const int h = img.rows;
-        const int w = img.cols;
-        const int width = 80;
-        const int ofs = 0;
-        const bool DO_CLIP = true;
-        const bool DO_CALIB = true;
-        int y1 = h / 2 - width / 2 + ofs;
-        int y2 = h / 2 + width / 2 + ofs;
-        double pixel[w][3];
-        const double sigma_thres = 3.0;
-        for (int x = fol; x > 0; x--)
-        {
-            pixel[x][0] = 0;
-            pixel[x][1] = 0;
-            pixel[x][2] = 0;
-            int count[3] = {0, 0, 0};
-            double mean[3] = {0, 0, 0};
-            double sigma[3] = {0, 0, 0};
-            // get mean
-            for (int y = y1; y < y2; y++)
-            {
-                int ch = 1; // b g r
-                if (x % 2 != 0 && y % 2 == 0)
-                {
-                    ch = 0;
-                }
-                else if (x % 2 == 0 && y % 2 != 0)
-                {
-                    ch = 2;
-                }
-                double val = (double)img.at<float>(y, x);
-                mean[ch] += val;
-                count[ch]++;
-            }
-            mean[0] /= (double)count[0];
-            mean[1] /= (double)count[1];
-            mean[2] /= (double)count[2];
-            // cout << "mean : " << mean[0] << endl;
-            //  get variance(sigma)
-            for (int y = y1; y < y2; y++)
-            {
-                int ch = 1; // b g r
-                if (x % 2 != 0 && y % 2 == 0)
-                {
-                    ch = 0;
-                }
-                else if (x % 2 == 0 && y % 2 != 0)
-                {
-                    ch = 2;
-                }
-                double val = (double)img.at<float>(y, x);
-                sigma[ch] += pow(val - mean[ch], 2);
-            }
-            sigma[0] = sqrt(sigma[0] / (double)count[0]);
-            sigma[1] = sqrt(sigma[1] / (double)count[1]);
-            sigma[2] = sqrt(sigma[2] / (double)count[2]);
-            // cout << "sigma : " << sigma_thres*sigma[0] << endl;
-            //  accumulate
-            int error = 0;
-            for (int y = y1; y < y2; y++)
-            {
-                int ch = 1; // b g r
-                if (x % 2 != 0 && y % 2 == 0)
-                {
-                    ch = 0;
-                }
-                else if (x % 2 == 0 && y % 2 != 0)
-                {
-                    ch = 2;
-                }
-                double val = (double)img.at<float>(y, x);
-                // sigma clipping
-                if (DO_CLIP)
-                {
-                    if (sigma_thres * sigma[ch] < abs(val - mean[ch]))
-                    {
-                        cout << "error : "
-                             << val << " "
-                             << sigma_thres * sigma[ch] << endl;
-                        count[ch]--;
-                    }
-                    else
-                    {
-                        if (val < 0)
-                        {
-                            val = 0;
-                        }
-                        pixel[x][ch] += val;
-                    }
-                }
-                else
-                {
-                    if (val < 0)
-                    {
-                        val = 0;
-                    }
-                    pixel[x][ch] += val;
-                }
-            }
-            for (int ch = 0; ch < 3; ch++)
-            {
-                if (count[ch] <= 0)
-                {
-                    count[ch] = 1;
-                }
-            }
-
-            for (int ch = 0; ch < 3; ch++)
-            {
-                pure[ch].push_back(pixel[x][ch] / (count[ch]));
-            }
-        }
-        double t, t_p, bgr;
-        int size = pure[0].size();
-
-        // bとrの欠落を埋めて、minをget =======================
-        for (int i = 1; i < size - 1; i++)
-        {
-            bgr = 0;
-            // bayer arrayにより欠落が生じるから
-            if (pure[0][i] == 0)
-            {
-                pure[0][i] = pure[0][i - 1] + (pure[0][i + 1] - pure[0][i - 1]) / 2;
-                bgr += pure[0][i];
-            }
-            bgr += pure[1][i];
-            if (pure[2][i] == 0)
-            {
-                pure[2][i] = pure[2][i - 1] + (pure[2][i + 1] - pure[2][i - 1]) / 2;
-                bgr += pure[2][i];
-            }
-
-            if (T_MIN < i && i < T_MAX)
-            {
-                if (max < bgr)
-                {
-                    max = bgr;
-                }
-                for (int c = 0; c < 3; c++)
-                {
-                    if (pure[c][i] < min[c])
-                    {
-                        min[c] = pure[c][i];
-                    }
-                }
-            }
-        }
-
-        // wavelength,sensitivity calibration & get max =======================
-        vector<double> calibrated[2];
-
-        for (int i = 0; i < size; i++)
-        {
-            // langange interpolation | t -> t_p
-            // cubic interpolation
-            t = i;
-            // LOGI("%s",to_string(t).c_str());
-            t_p = 0;
-            for (int j = 0; j < 4; j++)
-            {
-                double i_nume = 1.0;
-                for (int k = 0; k < 4; k++)
-                {
-                    if (k != j)
-                    {
-                        i_nume *= (t - t_ref[k]);
-                    }
-                }
-                t_p += c_ref[j] * i_nume / i_deno[j];
-            }
-
-            double sensit[4] = {1, 1, 1, 1};
-
-            if (DO_CALIB)
-            {
-                int vi = 0;
-                while (sensit_dat[0][vi] < t_p)
-                {
-                    vi++;
-                }
-                // 通り過ぎたら
-
-                // x0 + Δt*(dx/dt)
-                for (int ch = 0; ch < 4; ch++)
-                {
-                    sensit[ch] = sensit_dat[ch + 1][vi - 1] + (t_p - sensit_dat[0][vi]) * (sensit_dat[ch + 1][vi] - sensit_dat[ch + 1][vi - 1]) / (sensit_dat[0][vi] - sensit_dat[0][vi - 1]);
-                }
-            }
-
-            if (T_MIN < i && i < T_MAX)
-            {
-                if (400 < t_p && t_p < 700)
-                {
-
-                    bgr = 0;
-                    for (int c = 0; c < 3; c++)
-                    {
-                        pure[c][i] -= min[c];
-                        if (pure[c][i] <= 0)
-                        {
-                            pure[c][i] = 0;
-                        }
-                        bgr += pure[c][i];
-                    }
-                    bgr /= sensit[3];
-                    if (max < bgr)
-                    {
-                        max = bgr;
-                    }
-                    calibrated[0].push_back(t_p);
-                    calibrated[1].push_back(bgr);
-                }
-            }
-        }
-
-        // export ===========================
-        size = calibrated[0].size();
-
-        for (int i = 0; i < size; i++)
-        {
-            spectrum
-                << calibrated[0][i] << ","
-                << calibrated[1][i] / max << "\n";
-        }
-
-        dprintf(fd5, "%s", spectrum.str().c_str());
-
-        if (fsync(fd5) == -1)
-        {
-            ss << "failed to sync fd";
-        }
-
-        return env->NewStringUTF(ss.str().c_str());
+        return runGuarded(env, [&]() { return makeCsv(fd1, fd2, fd3, fd4, fd5, fol); });
     }
 }

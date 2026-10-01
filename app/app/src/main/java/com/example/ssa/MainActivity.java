@@ -95,10 +95,9 @@ public class MainActivity extends AppCompatActivity {
                 // 既に権限がある場合の処理
                 Toast.makeText(this, "ストレージフルアクセス権限があります", Toast.LENGTH_SHORT).show();
             }
-        } else {
-            // Android 10以下の場合は、通常のREAD/WRITEパーミッションを要求
-            // （ここは既存のコードがあると思うので割愛します）
         }
+        // Android 10 (minSdk 29) では, このアプリが MediaStore に作ったファイルは権限なしで読み書きできる.
+        // 感度データなど外部のファイルは ACTION_OPEN_DOCUMENT で選ぶので追加の権限は不要
     }
 }
 

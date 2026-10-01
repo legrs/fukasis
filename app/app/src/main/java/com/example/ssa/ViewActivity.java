@@ -29,7 +29,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
+import com.github.mikephil.charting.utils.EntryXComparator;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 import android.app.Activity;
 import android.content.ContentValues;
 import android.content.ContentUris;
@@ -103,7 +106,7 @@ public class ViewActivity extends AppCompatActivity {
         List<Entry> entries = new ArrayList<>();
 
         try (InputStream inputStream = getContentResolver().openInputStream(uri);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
 
             String line;
             while ((line = reader.readLine()) != null) {
@@ -123,6 +126,9 @@ public class ViewActivity extends AppCompatActivity {
                     }
                 }
             }
+
+            // MPAndroidChart は x 昇順でないと描画・タップ位置がおかしくなるので並べ替える
+            Collections.sort(entries, new EntryXComparator());
 
             // 読み込みが完了したら、グラフを描画するメソッドを呼ぶ
             displayChart(entries);

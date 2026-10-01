@@ -17,7 +17,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.ssa"
-        minSdk = 26
+        minSdk = 29 // MediaStore の RELATIVE_PATH / IS_PENDING (API 29+) を使うため
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"

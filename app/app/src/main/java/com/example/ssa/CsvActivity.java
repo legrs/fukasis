@@ -30,8 +30,19 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import android.widget.Toast;
 
 public class CsvActivity extends AppCompatActivity{
+
+    // makecsv は libssa にある. 撮影画面(Cam)を経由せずに来ても読み込まれているようにする
+    static {
+        System.loadLibrary("ssa");
+    }
+
+    // 画像のデコードなど重い処理は UI スレッドの外で行う
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private ImageView iv;
     private EditText path_et1; //et=EditText
@@ -64,8 +75,6 @@ public class CsvActivity extends AppCompatActivity{
         Button opencsvBtn = binding.opencsv;
         Button exportBtn = binding.export;
         SeekBar sb1 = binding.sb1;
-        TextView t1 = binding.t1;
-        FrameLayout line = binding.line;
         iv = binding.iv;
         iv.setScaleType(ImageView.ScaleType.MATRIX);
 
@@ -119,6 +128,8 @@ public class CsvActivity extends AppCompatActivity{
                     matrix.postTranslate(dispWidth - scale*imgWidth, -(scale*imgHeight-dispHeight)/2);
                     iv.setImageMatrix(matrix);
                     iv.getLocationOnScreen(pos);
+                    // スライダーを動かさずに export しても現在の表示位置が使われるようにする
+                    updateFol(sb1.getProgress());
                 }
 
             }
@@ -146,145 +157,56 @@ public class CsvActivity extends AppCompatActivity{
         });
         exportBtn.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
+                String seq = path_et1.getText().toString().trim();
+                String calibName = path_et2.getText().toString().trim();
+                if (seq.isEmpty() || calibName.isEmpty()) {
+                    Toast.makeText(activity, "Sequence Name と Calibration Data Name を入力してください", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (imgWidth == 0) {
+                    Toast.makeText(activity, "先に open image してください", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 ContentResolver resolver = getContentResolver();
-                Uri collection = MediaStore.Files.getContentUri("external");
-                Uri uri1 = null;
-                Uri uri2 = null;
-                Uri uri3 = null;
-                Uri uri5 = null;
+                String imgPath = "Documents/FUKASIS-app/imgs/" + seq + "/";
 
-                String filepath = "Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/";
-                String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?";
-                    //  tiff image
-
-                boolean isDarked = false;
-                String filename = "darked.tif";
-                String[] selectionArgs = {filename, filepath};
-                try(Cursor cursor = resolver.query(
-                            collection,
-                            new String[]{MediaStore.MediaColumns._ID},
-                            selection,
-                            selectionArgs,
-                            null)){
-                    if(cursor != null && cursor.moveToFirst()){
-                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
-                        // exsists
-                        uri1 = ContentUris.withAppendedId(collection, id);
-                        Log.d("a","ありましたよっ！");
-                        isDarked = true;
-                    }
-
+                // tiff image (ダーク減算済みがあればそちらを使う)
+                Uri uri1 = Cam.findUri(resolver, imgPath, "darked.tif");
+                if (uri1 == null) {
+                    uri1 = Cam.findUri(resolver, imgPath, "stacked.tif");
                 }
-                if(!isDarked){
-                    filename = "stacked.tif";
-                    selectionArgs = new String[]{filename, filepath};
-                    try(Cursor cursor = resolver.query(
-                                collection,
-                                new String[]{MediaStore.MediaColumns._ID},
-                                selection,
-                                selectionArgs,
-                                null)){
-                        if(cursor != null && cursor.moveToFirst()){
-                            long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
-                            // exsists
-                            uri1 = ContentUris.withAppendedId(collection, id);
-                            Log.d("a","ありましたよっ！");
-                        }else{
-                            Log.d("a","stacked.tifもないですよ!！");
-                        }
+                // calibration data
+                Uri uri2 = Cam.findUri(resolver, "Documents/FUKASIS-app/csv/calibdata/", calibName + ".csv");
+                // observation metadata
+                Uri uri3 = Cam.findUri(resolver, imgPath, "metadata.csv");
 
-                    }
+                String missing = null;
+                if (uri1 == null) missing = "darked.tif / stacked.tif";
+                else if (uri2 == null) missing = "校正データ " + calibName + ".csv";
+                else if (uri3 == null) missing = "metadata.csv";
+                else if (uri4 == null) missing = "感度データ (OPEN SENSITIVITY DATA で選択してください)";
+                if (missing != null) {
+                    Toast.makeText(activity, missing + " が見つかりません", Toast.LENGTH_LONG).show();
+                    return;
                 }
 
-                    // calibration data
-
-                filepath = "Documents/FUKASIS-app/csv/calibdata/";
-                filename = path_et2.getText().toString() + ".csv";
-                selectionArgs = new String[]{filename, filepath};
-                try(Cursor cursor = resolver.query(
-                            collection,
-                            new String[]{MediaStore.MediaColumns._ID},
-                            selection,
-                            selectionArgs,
-                            null)){
-                    if(cursor != null && cursor.moveToFirst()){
-                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
-                        // exsists
-                        uri2 = ContentUris.withAppendedId(collection, id);
-                        Log.d("a","ありましたよっ！");
-                    }else{
-                        Log.d("a","(校正用ファイルが)ないです");
-                    }
-
-                }
-
-                    // observation metadata
-
-                filepath = "Documents/FUKASIS-app/imgs/" + path_et1.getText().toString() + "/";
-                filename = "metadata.csv";
-                selectionArgs = new String[]{filename, filepath};
-                try(Cursor cursor = resolver.query(
-                            collection,
-                            new String[]{MediaStore.MediaColumns._ID},
-                            selection,
-                            selectionArgs,
-                            null)){
-                    if(cursor != null && cursor.moveToFirst()){
-                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
-                        // exsists
-                        uri3 = ContentUris.withAppendedId(collection, id);
-                        Log.d("a","ありましたよっ！");
-                    }else{
-                        Log.d("a","(metadataが)ないです");
-                    }
-
-                }
-
-                    // spectrum csv file
-
-                ContentValues values = new ContentValues();
-                uri5 = Cam.getUri(activity,"Documents/FUKASIS-app/csv/spectrum/", path_et1.getText().toString() + ".csv", "text/csv",resolver , values);
-
-
-                try{
-                    if(uri1 != null && uri2 != null && uri3 != null && uri4 != null && uri5 != null){
-                        ParcelFileDescriptor pfd1 = resolver.openFileDescriptor(uri1, "r");
-                        ParcelFileDescriptor pfd2 = resolver.openFileDescriptor(uri2, "r");
-                        ParcelFileDescriptor pfd3 = resolver.openFileDescriptor(uri3, "r");
-                        ParcelFileDescriptor pfd4 = resolver.openFileDescriptor(uri4, "r");
-                        ParcelFileDescriptor pfd5 = resolver.openFileDescriptor(uri5, "w");
-
-                        if(pfd1 != null && pfd2 != null && pfd3 != null && pfd4 != null && pfd5 != null){
-                            Log.d("a",makecsv(pfd1.getFd(), pfd2.getFd(), pfd3.getFd(), pfd4.getFd(), pfd5.getFd(), (int)fol));
-
-                            pfd1.close();
-                            pfd2.close();
-                            pfd3.close();
-                            pfd4.close();
-                            pfd5.close();
-
-                            values.clear();
-                            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                            resolver.update(uri5, values, null, null);
-
-                            Log.d("a", "saved csv");
-
-                        }
-
-                    }
-                }catch(IOException e){
-                    e.printStackTrace();
-                }
+                final Uri imgUri = uri1, calibUri = uri2, metaUri = uri3, sensitUri = uri4;
+                final int folPx = (int) fol;
+                exportBtn.setEnabled(false);
+                executor.execute(() -> {
+                    String err = exportSpectrum(resolver, seq, imgUri, calibUri, metaUri, sensitUri, folPx);
+                    runOnUiThread(() -> {
+                        exportBtn.setEnabled(true);
+                        Toast.makeText(activity, err.isEmpty() ? "スペクトルを保存しました" : "失敗: " + err, Toast.LENGTH_LONG).show();
+                    });
+                });
             }
         });
         sb1.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 Log.d("a","" + i);
-                t1.setText("" + i);
-                fol = imgWidth - i;
-                line.setX(dispWidth+(-imgWidth + fol)*scale);
-                line.setY(pos[1]-50);
+                updateFol(i);
             }
 
             @Override
@@ -298,6 +220,46 @@ public class CsvActivity extends AppCompatActivity{
 
 
     }
+    private void updateFol(int i){
+        binding.t1.setText("" + i);
+        fol = imgWidth - i;
+        binding.line.setX(dispWidth+(-imgWidth + fol)*scale);
+        binding.line.setY(pos[1]-50);
+    }
+
+    // スペクトル CSV を書き出す. 成功時は空文字列, 失敗時はエラーメッセージ
+    private String exportSpectrum(ContentResolver resolver, String seq, Uri imgUri, Uri calibUri, Uri metaUri, Uri sensitUri, int folPx) {
+        ContentValues values = new ContentValues();
+        Uri outUri = Cam.getUri(activity, "Documents/FUKASIS-app/csv/spectrum/", seq + ".csv", "text/csv", resolver, values);
+        if (outUri == null) {
+            return "保存先のファイルを作成できません";
+        }
+        String err;
+        try (ParcelFileDescriptor pfd1 = resolver.openFileDescriptor(imgUri, "r");
+             ParcelFileDescriptor pfd2 = resolver.openFileDescriptor(calibUri, "r");
+             ParcelFileDescriptor pfd3 = resolver.openFileDescriptor(metaUri, "r");
+             ParcelFileDescriptor pfd4 = resolver.openFileDescriptor(sensitUri, "r");
+             ParcelFileDescriptor pfd5 = resolver.openFileDescriptor(outUri, "wt")) {
+            if (pfd1 == null || pfd2 == null || pfd3 == null || pfd4 == null || pfd5 == null) {
+                err = "ファイルを開けません";
+            } else {
+                err = makecsv(pfd1.getFd(), pfd2.getFd(), pfd3.getFd(), pfd4.getFd(), pfd5.getFd(), folPx);
+            }
+        } catch (IOException | RuntimeException e) {
+            e.printStackTrace();
+            err = "ファイルを開けません: " + e.getMessage();
+        }
+        Cam.finishOutput(resolver, outUri, values, err.isEmpty());
+        Log.d("a", err.isEmpty() ? "saved csv" : err);
+        return err;
+    }
+
+    @Override
+    protected void onDestroy(){
+        super.onDestroy();
+        executor.shutdown();
+    }
+
     @Override
     protected void onResume(){
         super.onResume();
@@ -320,5 +282,6 @@ public class CsvActivity extends AppCompatActivity{
     );
 
 
+    // 成功時は空文字列, 失敗時はエラーメッセージを返す
     public native String makecsv(int fd1, int fd2, int fd3, int fd4, int fd5, int fol);
 }
