@@ -83,10 +83,15 @@ public class CapActivity extends AppCompatActivity {
 
     private Cam cam;
 
-    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) {
-        // super.onRequestPermissionResult(requestCode, permissions, grantResults);
-        if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            cam.setupCam();
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != CAMERA_PERMISSION_REQUEST_CODE) {
+            return;
+        }
+        // 許可された場合は, この後の onResume でカメラを開く
+        if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "カメラの権限がないため撮影できません", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -153,14 +158,28 @@ if (isLine) {
                     // Cam.java: setStatusメソッドを使用して、エラーメッセージを表示する
                     return;
                 }
-                int qty = Integer.parseInt(qtyText.getText().toString());
+                int qty;
+                try {
+                    qty = Integer.parseInt(qtyText.getText().toString().trim());
+                } catch (NumberFormatException e) {
+                    qty = 0;
+                }
+                if (qty < 1) {
+                    Cam.setStatus(Cam.StatusType.ERROR, "Please enter a capture quantity of 1 or more.", captureStatusIcon, indicator);
+                    return;
+                }
                 // Log.d("a", String.format("start capture %d ms, %d, %f, %d枚,name:%s", (int) (expo / 1000000L), iso, fd,
                 //         qty, nameText.getText().toString()));
-                cam.startCaptureSession(expo, iso, fd, qty, nameText.getText().toString(), indicator);
-                Log.d("BUTTON", "start capture session！");
                 // captureボタンの透明度を下げる
                 capBtn.setAlpha(0.5f);
                 capBtn.setEnabled(false);
+                if (!cam.startCaptureSession(expo, iso, fd, qty, nameText.getText().toString(), indicator)) {
+                    Cam.setStatus(Cam.StatusType.ERROR, "Camera is not ready. Please try again.", captureStatusIcon, indicator);
+                    capBtn.setAlpha(1.0f);
+                    capBtn.setEnabled(true);
+                    return;
+                }
+                Log.d("BUTTON", "start capture session！");
 
             }
         });
@@ -336,6 +355,8 @@ if (isLine) {
                         break;
                 }
 
+                // カメラが受け付けない ISO は受け付ける範囲に収める (表示も実際の値にする)
+                iso = cam.clampIso(iso);
                 isoTxt.setText("ISO:" + iso + "");
                 cam.changeValueOfPreview(iso, -100, 0, -1);
             }
@@ -364,7 +385,11 @@ if (isLine) {
                 expoTxt.setText(String.format("Exposure: %.2f ms", ms));
 
                 // 2. ナノ秒（Camera2 API用）は大きな整数になるので (long) にキャストする
-                expo = (long) (ms * 1000000.0);
+                // カメラが受け付けない露出時間は受け付ける範囲に収める (表示も実際の値にする)
+                expo = cam.clampExposure((long) (ms * 1000000.0));
+                if (expo != (long) (ms * 1000000.0)) {
+                    expoTxt.setText(String.format("Exposure: %.2f ms (camera limit)", expo / 1000000.0));
+                }
 
                 cam.changeValueOfPreview(0, -100, expo, -1);
             }
@@ -381,10 +406,12 @@ if (isLine) {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 // 0 ~ 1000
+                // ガイド線の位置は筐体と画面によるので端末プロファイルから
+                DeviceProfile profile = DeviceProfiles.current(CapActivity.this);
                 if (zoom == 2) {
-                    line.setY(1800 + i / 10);
+                    line.setY((float) profile.guideLineYPointing() + i / 10);
                 } else {
-                    line.setY(2050 + i / 10);
+                    line.setY((float) profile.guideLineY() + i / 10);
                 }
             }
 
@@ -404,18 +431,15 @@ if (isLine) {
         alarmSound = soundPool.load(this, R.raw.technoalarm, 1);
         shatterSound = soundPool.load(this, R.raw.shatter, 1);
 
-        // cam object
+        // cam object (使うカメラは端末プロファイルで決める. 書かれていなければ RAW で撮れる背面カメラ)
+        camId = DeviceProfiles.cameraId(this);
         cam = new Cam(this, camId, soundPool, alarmSound, shatterSound, tv1, tv2, captureStatusIcon);
 
+        // request camera permission (カメラを開くのは onResume で行う)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.CAMERA },
                     CAMERA_PERMISSION_REQUEST_CODE);
-        } else {
-            cam.setupCam();
         }
-        cam.startBackgroundThread();
-        // request camera permission
-        //
 
     }
 
@@ -425,6 +449,11 @@ if (isLine) {
 
         cam.startBackgroundThread();
         cam.setupCam();
+        // onPause で撮影が中断されていたらボタンを押せる状態に戻す
+        if (!cam.isCapturing()) {
+            binding.cap.setAlpha(1.0f);
+            binding.cap.setEnabled(true);
+        }
     }
 
     @Override

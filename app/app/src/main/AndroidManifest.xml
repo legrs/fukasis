@@ -39,6 +39,9 @@
             android:name=".CsvActivity"
             android:exported="false" />
         <activity
+            android:name=".DeviceActivity"
+            android:exported="false" />
+        <activity
             android:name=".CapActivity"
             android:exported="false"
             android:theme="@style/Theme.SSA" />
