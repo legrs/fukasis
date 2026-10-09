@@ -1,0 +1,264 @@
+# PC 用ツールのリリース: GitHub Releases → npm → crates.io の順に公開する。
+# 実行するときに公開先を選ぶ。選ばなかった段は飛ばし, 失敗した段があればそれ以降は行わない。
+# 手動実行のみ: Actions → publish-all → Run workflow。
+# リリースは igarinpiano/fukasis で行う (ほかのリポジトリでは最初のジョブで止まる)。
+#
+# タグは `pc-v<バージョン>` (アプリ本体の APK は `v*` タグなので別系統)。
+# バージョンは cli/Cargo.toml のものを使う。
+#
+# 認証は npm も crates.io も Trusted Publishing (OIDC)。このリポジトリにトークンは置かない。
+#
+# `ref` を指定すると, 選んだブランチではなくそのタグ / コミットをビルドする
+# (古いリリースに実行ファイルを足すときなど)。GitHub Release がもうあれば, ファイルを追加・差し替えする。
+#
+# 最初のリリースだけは手作業が要る (Trusted Publishing は, もう存在するパッケージにしか設定できない):
+#   1. npmjs.com で組織 `fksgeo` を作る (機種別パッケージ @fksgeo/fukasis-bin-* の置き場所)。
+#   2. このワークフローを「GitHub Releases」だけ選んで実行する。
+#   3. 手元で `scripts/first-publish.sh <バージョン> --trust` を実行する。
+#      crates.io の fukasis と, npm の @fksgeo/fukasis-bin-* / fukasis を, その GitHub Release から公開し,
+#      npm の各パッケージに Trusted Publishing を登録する。
+#   4. crates.io → fukasis → Settings → Trusted Publishing に次を登録する:
+#        owner igarinpiano / repo fukasis / workflow publish-all.yml / environment crates-io
+#      (npm を --trust なしで公開した場合は, npmjs.com の各パッケージの Settings → Trusted publishing にも:
+#        owner igarinpiano / repo fukasis / workflow publish-all.yml / environment npm)
+#   5. このリポジトリの Settings → Environments に `npm` と `crates-io` を作る。
+# それ以降のリリースは, このワークフローを全部選んで実行するだけ。
+#
+# あとから機種を足したとき: その npm パッケージはまだ無いので, npm の段はほかを全部公開したうえで,
+# その名前を挙げて失敗する。`scripts/first-publish.sh <バージョン> --npm-only --trust` で一度だけ
+# 手元から公開すれば (公開済みのものは飛ばされる), 次のリリースからは自動で入る。
+# npm の段が失敗すると crates.io の段は飛ばされるので, crates.io だけ選んでもう一度実行する。
+name: publish-all
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Expected version (e.g. 0.1.0). Must match cli/Cargo.toml; empty skips the check"
+        required: false
+      ref:
+        description: "Tag/commit to build (empty = the branch selected above)"
+        required: false
+        default: ""
+      publish_github_release:
+        description: "Publish to GitHub Releases"
+        type: boolean
+        default: true
+      publish_npm:
+        description: "Publish to npm"
+        type: boolean
+        default: true
+      publish_crates_io:
+        description: "Publish to crates.io"
+        type: boolean
+        default: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - name: Releases are made from igarinpiano/fukasis
+        if: github.repository != 'igarinpiano/fukasis'
+        run: |
+          echo "::error::publish-all は igarinpiano/fukasis でだけ実行します (ここは $GITHUB_REPOSITORY)"
+          exit 1
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - id: ver
+        env:
+          # 入力は env 経由で渡す (スクリプトに直接埋め込まない)
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          v="$(grep -m1 '^version' cli/Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
+          if [ -n "$INPUT_VERSION" ] && [ "$INPUT_VERSION" != "$v" ]; then
+            echo "::error::cli/Cargo.toml のバージョン ($v) が入力 ($INPUT_VERSION) と違います"
+            exit 1
+          fi
+          web="$(node -p "require('./web/package.json').version")"
+          if [ "$web" != "$v" ]; then
+            echo "::error::web/package.json のバージョン ($web) が cli/Cargo.toml ($v) と違います"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      # 公開する前に, テストが通っていることを確かめる
+      - name: Test (web, npm)
+        run: node --test web/test/core.test.js web/test/server.test.js npm/test/npm.test.js
+      - name: Test (cli)
+        working-directory: cli
+        run: cargo test --locked
+
+  build:
+    needs: check-version
+    if: ${{ inputs.publish_github_release || inputs.publish_npm }}
+    uses: ./.github/workflows/reusable-build-matrix.yml
+    with:
+      ref: ${{ inputs.ref }}
+
+  github-release:
+    needs: [check-version, build]
+    if: |
+      always() && inputs.publish_github_release &&
+      needs.check-version.result == 'success' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: bin-*
+          merge-multiple: true
+          path: binaries
+      - name: Archive binaries and the web app
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          mkdir -p release pkg
+          for t in binaries/*/; do
+            t="${t%/}"; name="fukasis-$VERSION-$(basename "$t")"
+            mkdir -p "pkg/$name"
+            cp cli/README.md LICENSE "$t"/* "pkg/$name/"
+            if [ -f "$t/fukasis.exe" ]; then
+              (cd pkg && zip -qr "../release/$name.zip" "$name")
+            else
+              [ -f "pkg/$name/fukasis" ] && chmod +x "pkg/$name/fukasis"
+              tar -czf "release/$name.tar.gz" -C pkg "$name"
+            fi
+          done
+          # web 版一式 (展開して index.html を開く)
+          web="fukasis-web-$VERSION"
+          mkdir -p "pkg/$web"
+          cp -R web/index.html web/css web/js web/README.md LICENSE "pkg/$web/"
+          (cd pkg && zip -qr "../release/$web.zip" "$web")
+          (cd release && sha256sum * > SHA256SUMS)
+          ls -l release
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: release/*
+      - name: Create the GitHub Release (or update its assets)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          tag="pc-v$VERSION"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "Release $tag exists; uploading/replacing assets"
+            gh release upload "$tag" release/* --clobber
+          else
+            # タグ pc-v$VERSION があればそれを使い, 無ければビルドしたコミットに作る.
+            # アプリ本体 (APK) のリリースを「Latest」のままにするため --latest=false にする
+            target="$(git rev-parse HEAD)"
+            prerelease=""
+            [[ "$VERSION" == 0.* || "$VERSION" == *-* ]] && prerelease="--prerelease"
+            gh release create "$tag" release/* --target "$target" --title "FUKASIS for PC v$VERSION" \
+              --generate-notes --latest=false $prerelease
+          fi
+
+  npm:
+    needs: [check-version, build, github-release]
+    if: |
+      always() && inputs.publish_npm &&
+      needs.check-version.result == 'success' && needs.build.result == 'success' &&
+      needs.github-release.result != 'failure' && needs.github-release.result != 'cancelled'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # npm Trusted Publishing (OIDC)
+    steps:
+      # パッケージを組み立てる道具 (npm/) は選んだブランチのものを使い, README と LICENSE は ref のものを入れる
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          path: src
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: bin-*
+          merge-multiple: true
+          path: binaries
+      - name: Assemble npm packages
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: node npm/assemble.js --version "$VERSION" --binaries binaries --out npm-out --docs src
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+      - name: Publish (platform packages first, the main package last)
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          # setup-node が NODE_AUTH_TOKEN を設定していると OIDC に切り替わらないので外す
+          unset NODE_AUTH_TOKEN
+          unset NPM_CONFIG_USERCONFIG
+          npm --version
+          # 公開できないパッケージ (たいていは Trusted Publishing をまだ登録していない新しい機種) が
+          # あっても, ほかは公開し, 親パッケージまで進めてからジョブを失敗にする
+          failed=""
+          publish() {
+            name="$(node -p "require('./$1/package.json').name")"
+            if npm view "$name@$VERSION" version > /dev/null 2>&1; then
+              echo "$name@$VERSION is already published; skipping"
+            elif ! (cd "$1" && npm publish --access public --provenance); then
+              echo "::error::could not publish $name@$VERSION"
+              failed="$failed $name"
+            fi
+          }
+          for d in npm-out/@fksgeo/*; do
+            [ -d "$d" ] && publish "$d"
+          done
+          publish npm-out/fukasis
+          if [ -n "$failed" ]; then
+            echo "::error::not published:$failed — 一度だけ手元から公開してください (scripts/first-publish.sh $VERSION --npm-only --trust)"
+            exit 1
+          fi
+
+  crates-io:
+    needs: [check-version, github-release, npm]
+    if: |
+      always() && inputs.publish_crates_io &&
+      needs.check-version.result == 'success' &&
+      needs.github-release.result != 'failure' && needs.github-release.result != 'cancelled' &&
+      needs.npm.result != 'failure' && needs.npm.result != 'cancelled'
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write # crates.io Trusted Publishing (OIDC)
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Authenticate with crates.io (OIDC / Trusted Publishing)
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish fukasis
+        working-directory: cli
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          code="$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "User-Agent: fukasis-ci (+https://github.com/igarinpiano/fukasis)" \
+            "https://crates.io/api/v1/crates/fukasis/$VERSION")"
+          if [ "$code" = "200" ]; then
+            echo "fukasis $VERSION is already published; skipping"
+          else
+            cargo publish --locked
+          fi

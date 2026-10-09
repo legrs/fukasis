@@ -1,0 +1,19 @@
+[package]
+name = "fukasis"
+version = "0.1.0"
+edition = "2021"
+description = "Process spectra captured with FUKASIS-app on a PC: dark subtraction, wavelength calibration, CSV export and SVG graphs"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/igarinpiano/fukasis"
+homepage = "https://github.com/igarinpiano/fukasis/tree/master/cli"
+keywords = ["spectroscopy", "astronomy", "spectrum", "calibration", "tiff"]
+categories = ["command-line-utilities", "science"]
+# crates.io に載せるのはビルドに要るものだけ. tests/ は ../testdata を読むので入れない
+include = ["src/**", "README.md", "LICENSE"]
+
+# 外部クレートには依存しない (標準ライブラリだけでビルドできる)
+[dependencies]
+
+[profile.release]
+opt-level = 3

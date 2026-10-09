@@ -1,0 +1,237 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FUKASIS for PC</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <h1>FUKASIS <span data-i18n="app.subtitle"></span></h1>
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="dark" data-i18n="tab.dark"></button>
+        <button role="tab" data-tab="calib" data-i18n="tab.calib"></button>
+        <button role="tab" data-tab="csv" data-i18n="tab.csv"></button>
+        <button role="tab" data-tab="graph" data-i18n="tab.graph"></button>
+      </nav>
+      <div class="top-actions">
+        <button id="demo-btn" data-i18n="app.demo"></button>
+        <button id="lang-btn"></button>
+        <button id="theme-btn" data-i18n="app.theme"></button>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============================================================ dark -->
+      <section id="tab-dark" class="panel">
+        <p class="lead" data-i18n="dark.lead"></p>
+        <div class="card">
+          <div class="grid2">
+            <label class="field">
+              <span data-i18n="dark.light"></span>
+              <input type="file" id="dark-light-file" accept=".tif,.tiff" />
+              <span class="loaded" id="dark-light-info"></span>
+            </label>
+            <label class="field">
+              <span data-i18n="dark.dark"></span>
+              <input type="file" id="dark-dark-file" accept=".tif,.tiff" />
+              <span class="loaded" id="dark-dark-info"></span>
+            </label>
+          </div>
+          <div class="row" style="margin-top: 12px">
+            <button class="primary" id="dark-run" data-i18n="dark.run" disabled></button>
+          </div>
+          <div id="dark-message"></div>
+        </div>
+        <div class="card" id="dark-result" hidden>
+          <h2 data-i18n="dark.result"></h2>
+          <p class="stats" id="dark-stats"></p>
+          <div id="dark-viewer" style="margin: 10px 0"></div>
+          <div class="row">
+            <button id="dark-save" data-i18n="dark.save"></button>
+            <button id="dark-to-csv" data-i18n="common.useInCsv"></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ calibration -->
+      <section id="tab-calib" class="panel" hidden>
+        <p class="lead" data-i18n="calib.lead"></p>
+        <div class="card">
+          <div class="row">
+            <label class="field">
+              <span data-i18n="calib.image"></span>
+              <input type="file" id="calib-file" accept=".tif,.tiff,.jpg,.jpeg,.png" />
+            </label>
+            <span class="loaded" id="calib-info"></span>
+          </div>
+        </div>
+        <div class="card" id="calib-work" hidden>
+          <div class="row">
+            <label
+              ><span data-i18n="common.brightness"></span>
+              <input type="range" id="calib-gain" min="-20" max="40" value="0" />
+              <span id="calib-gain-text" class="note"></span
+            ></label>
+            <label
+              ><span data-i18n="common.zoom"></span>
+              <select id="calib-zoom">
+                <option value="1" data-i18n="common.zoomFit"></option>
+                <option value="2">×2</option>
+                <option value="4">×4</option>
+                <option value="8">×8</option>
+              </select></label
+            >
+            <span class="note" data-i18n="calib.hint"></span>
+          </div>
+          <div id="calib-viewer"></div>
+
+          <div class="grid2" style="margin-top: 12px">
+            <div>
+              <table class="lines">
+                <thead>
+                  <tr>
+                    <th data-i18n="calib.colMarker"></th>
+                    <th data-i18n="calib.colX"></th>
+                    <th data-i18n="calib.colNm"></th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="calib-lines"></tbody>
+              </table>
+              <div class="row" style="margin-top: 8px">
+                <button class="small" id="calib-add" data-i18n="calib.add"></button>
+                <button class="small" id="calib-auto-fol" data-i18n="common.autoFol"></button>
+                <label class="note"
+                  ><input type="checkbox" id="calib-peaks" checked /> <span data-i18n="calib.showPeaks"></span
+                ></label>
+              </div>
+            </div>
+            <div>
+              <h2 data-i18n="calib.fit"></h2>
+              <p class="stats" id="calib-fit"></p>
+              <div id="calib-message"></div>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top: 12px">
+            <label class="field">
+              <span data-i18n="calib.name"></span>
+              <input type="text" id="calib-name" />
+            </label>
+            <button id="calib-save" data-i18n="calib.save"></button>
+            <button id="calib-to-csv" data-i18n="calib.useInCsv"></button>
+            <label class="field">
+              <span data-i18n="calib.load"></span>
+              <input type="file" id="calib-load" accept=".csv,text/csv" />
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ csv -->
+      <section id="tab-csv" class="panel" hidden>
+        <p class="lead" data-i18n="csv.lead"></p>
+        <div class="card">
+          <div class="grid2">
+            <label class="field">
+              <span data-i18n="csv.image"></span>
+              <input type="file" id="csv-image-file" accept=".tif,.tiff" />
+              <span class="loaded" id="csv-image-info"></span>
+            </label>
+            <label class="field">
+              <span data-i18n="csv.calib"></span>
+              <input type="file" id="csv-calib-file" accept=".csv,text/csv" />
+              <span class="loaded" id="csv-calib-info"></span>
+            </label>
+            <label class="field">
+              <span data-i18n="csv.sensitivity"></span>
+              <input type="file" id="csv-sens-file" accept=".csv,text/csv" />
+              <span class="loaded" id="csv-sens-info"></span>
+            </label>
+            <label class="field">
+              <span data-i18n="csv.metadata"></span>
+              <input type="file" id="csv-meta-file" accept=".csv,text/csv" />
+              <span class="loaded" id="csv-meta-info"></span>
+            </label>
+          </div>
+        </div>
+        <div class="card" id="csv-work" hidden>
+          <div class="row">
+            <label
+              ><span data-i18n="csv.fol"></span> <input type="number" id="csv-fol" min="1" step="1"
+            /></label>
+            <button class="small" id="csv-auto-fol" data-i18n="common.autoFol"></button>
+            <label
+              ><span data-i18n="common.brightness"></span>
+              <input type="range" id="csv-gain" min="-20" max="40" value="0"
+            /></label>
+            <label
+              ><span data-i18n="common.zoom"></span>
+              <select id="csv-zoom">
+                <option value="1" data-i18n="common.zoomFit"></option>
+                <option value="2">×2</option>
+                <option value="4">×4</option>
+                <option value="8">×8</option>
+              </select></label
+            >
+          </div>
+          <div id="csv-viewer"></div>
+          <div class="row" style="margin-top: 12px">
+            <button class="primary" id="csv-run" data-i18n="csv.run" disabled></button>
+            <span class="note" id="csv-missing"></span>
+          </div>
+          <div id="csv-message"></div>
+        </div>
+        <div class="card" id="csv-result" hidden>
+          <h2 data-i18n="csv.result"></h2>
+          <p class="stats" id="csv-stats"></p>
+          <div id="csv-chart" class="chart compact"></div>
+          <div class="row" style="margin-top: 10px">
+            <button id="csv-save" data-i18n="csv.save"></button>
+            <button id="csv-to-graph" data-i18n="csv.toGraph"></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ graph -->
+      <section id="tab-graph" class="panel" hidden>
+        <p class="lead" data-i18n="graph.lead"></p>
+        <div class="card">
+          <div class="row">
+            <label class="field">
+              <span data-i18n="graph.open"></span>
+              <input type="file" id="graph-file" accept=".csv,text/csv" multiple />
+            </label>
+            <label><input type="checkbox" id="graph-outliers" checked /> <span data-i18n="graph.outliers"></span></label>
+            <label><input type="checkbox" id="graph-lines" /> <span data-i18n="graph.refLines"></span></label>
+            <button class="small" id="graph-reset" data-i18n="graph.resetZoom"></button>
+            <button class="small" id="graph-png" data-i18n="graph.png"></button>
+          </div>
+          <p class="note" id="graph-info"></p>
+        </div>
+        <div class="card" id="graph-card" hidden>
+          <div id="graph-chart" class="chart"></div>
+          <p class="note" data-i18n="graph.hint"></p>
+          <details id="graph-table-details">
+            <summary data-i18n="graph.table"></summary>
+            <div class="row" style="margin-top: 8px">
+              <select id="graph-table-series"></select>
+            </div>
+            <div class="table-wrap"><table id="graph-table"></table></div>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" role="status"></div>
+
+    <script src="js/core.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/chart.js"></script>
+    <script src="js/viewer.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,68 @@
+name: PC tools
+
+# web/ (ブラウザ版), cli/ (Rust のコマンドライン版), npm/ (npm で配るための組み立て) のテスト。
+# どちらも testdata/ の正解データ (アプリの C++ の出力) と一致することを確かめる。
+on:
+  push:
+    paths:
+      - "web/**"
+      - "cli/**"
+      - "testdata/**"
+      - "npm/**"
+      - ".github/workflows/pc-tools.yml"
+  pull_request:
+    paths:
+      - "web/**"
+      - "cli/**"
+      - "testdata/**"
+      - "npm/**"
+      - ".github/workflows/pc-tools.yml"
+  workflow_dispatch:
+
+jobs:
+  web:
+    name: Web (node --test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # ランナーに入っている Node.js をそのまま使う (依存パッケージは無い)
+      - name: Node version
+        run: node --version
+      - name: Test
+        run: node --test web/test/core.test.js web/test/server.test.js
+      # npm で配るコマンドライン版の起動役と, パッケージの組み立て
+      - name: Test (npm packaging)
+        run: node --test npm/test/npm.test.js
+
+  cli:
+    name: CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v7
+      # ランナーに入っている Rust をそのまま使う (外部クレートに依存しないので取得するものは無い)
+      - name: Rust version
+        run: cargo --version
+      - name: Test
+        run: cargo test --locked
+      - name: Build
+        run: cargo build --release --locked
+      # crates.io に載せる中身だけでビルドできることを確かめる (公開はしない)
+      - name: Package (dry run)
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo package --locked
+      # Rust を入れていない人も使えるよう, ビルドした実行ファイルを成果物として残す
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: fukasis-cli-${{ matrix.os }}
+          path: |
+            cli/target/release/fukasis
+            cli/target/release/fukasis.exe
+          if-no-files-found: error

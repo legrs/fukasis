@@ -455,6 +455,17 @@ csvは最初の2行にヘッダーがあります。
 2行目はラベルを示します。`wavelength/nm,relative intensity(0.0 -- 1.0)`となっています。波長と相対強度で、相対強度はデータの中でもっとも大きな値が$1.0$となるような単位になっています。\
 以降はカンマで区切られた2組のデータが並びます。
 
+### PCで処理する
+
+撮影したデータをPCでじっくり処理したい場合は、次の2つが使えます。どちらもアプリのdark / calibration / csv / view画面に相当する処理ができ、計算結果はアプリと同じになるようにしてあります。
+
+- [web版](./web/README.md) : `web/index.html`をブラウザで開くだけで使えます。画像を見ながら輝線の位置を合わせたり、複数のスペクトルを重ねて比べたりできます。
+- [コマンドライン版](./cli/README.md) : Rust製です。まとめて処理したいときやスクリプトから呼びたいときに使います。
+
+`Internal_Storage/Documents/FUKASIS-app/`をPCにコピーして使ってください。
+
+配布の準備（GitHub Release / crates.io / npm）については[docs/releasing.md](./docs/releasing.md)を参照してください。
+
 <br><br><br><br>
 
 
