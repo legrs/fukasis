@@ -31,9 +31,16 @@ find_package(OpenCV REQUIRED)
 # System.loadLibrary() and pass the name of the library defined here;
 # for GameActivity/NativeActivity derived applications, the same library name must be
 # used in the AndroidManifest.xml file.
+# Android / iPhone で共有するスペクトル処理 (リポジトリ直下の core/)
+set(FUKASIS_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../core/Sources/FukasisCoreC)
+
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
-        native-lib.cpp)
+        native-lib.cpp
+        auto_calib.cpp
+        ${FUKASIS_CORE_DIR}/spectrum.cpp)
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${FUKASIS_CORE_DIR})
 
 # Specifies libraries CMake should link to your target library. You
 # can link libraries from various origins, such as libraries defined in this

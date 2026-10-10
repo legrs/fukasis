@@ -70,7 +70,9 @@
 ### スマートフォン [ Galaxy S22 ]
 **Galaxy S22**を前提に設計されています。中古品なら3万円程度で手に入ります。
 
-その他のスマートフォンを使用する場合、筐体の設計・検出器の感度測定はもちろん、専用アプリケーション(以降、FUKASIS-app)もビルドし直す必要がある可能性があります。性能も変わると思われます。\
+その他のスマートフォンを使用する場合、筐体の設計・検出器の感度測定が必要です。性能も変わると思われます。
+FUKASIS-app の機種ごとの設定は「device setup」画面で蛍光灯の写真から作れるので、アプリをビルドし直す必要はありません。
+iPhone 版 (`ios/`) もあります (実機では未検証)。詳しくは [他の機種・iPhone で使うには](./docs/porting.md) を見てください。\
 (もしいい感じのスマホを見つけたらぜひ教えてください。実はS22が最適とは思っていません。)
 
 設計をいじりたい場合は[ドキュメント](#ドキュメント-documents)をご参照ください
@@ -368,6 +370,14 @@ release/
 
 3次近似なので4つありますが、「2次でもいい」「4本もない…」という場合は、同じ波長を2つのバーに入力して全く同じ位置に持っていきましょう
 
+その下の2本(チェックボックス付き)は追加の校正点です。チェックを入れたものだけが5本目・6本目として使われます。\
+4本のときはその4点を通る3次式、5本以上のときは3次式を最小二乗で当てはめます。輝線が並ぶ範囲の外側(とくに611.6 nmより長波長側)にも校正点があると、端のほうの波長が安定します。
+
+**EXPORT CSV** を押すと、その校正データでcsv画面が出力する波長の範囲が表示されます。\
+スペクトルとして出力されるのは 400 nm -- 700 nm のうち、波長が位置に対して単調に変化している範囲です(校正式が折り返す部分は出力されません)。
+
+画像の下の**Brightness**バーは表示の明るさを変えるだけで、校正データには影響しません(csv画面にも同じバーがあります)。
+
 
 #### view画面 :
 <img src="./docs/imgs/view.jpg" width="30%" alt="view画面"/>
@@ -422,7 +432,7 @@ release/
 1. **CAPTURE**ボタンを押します！撮影が開始されます。\
     1枚撮影が終わるたびに長音3回のBeep音が鳴ります(Beep-Beep-Beep)。\
     capture sequenceが終わると長音6回のBeep音が鳴ります(Beep-Beep-Beep-Beep-Beep-Beep)\
-    画像は `Internal_Storage/Documents/FUKASIS-app/imgs`下にsequence nameのディレクトリが作成され、保存されます。それぞれのraw画像(.dng)と`stacked.tif`と`stacked.jpg`が保存されます。
+    画像は `Internal_Storage/Documents/FUKASIS-app/imgs`下にsequence nameのディレクトリが作成され、保存されます。それぞれのraw画像(.dng)と`stacked.tif`(全フレームの平均)と`stacked.jpg`が保存されます。
 <br><br>
 1. 分光器を遮光して暗くした状態で、観測と同じ方法でダークフレームをとります。同じ露光時間・ISO感度にしてください。名前は`dark_20260314`にようにすると良いです。 なおダークフレームを撮らなくてもスペクトル出力はできます。
     スリットの差し込み口から光が入らないよう気をつけてください。
@@ -430,17 +440,19 @@ release/
     観測の名前とダークフレームの名前を入れて、**PROCESS**を押します。減算されて`Internal_Storage/Documents/FUKASIS-app/imgs/観測の名前/darked.tif`が保存されます。
 1. **csv画面**に移ります
 1. 観測の名前を**Sequence Name**に入力し、**OPEN IMAGE**と押します。
-1. スライダーを使って0次光の部分に赤色のラインを載せます。
+1. スライダーを使って0次光の部分に赤色のラインを載せます。\
+    **AUTO (FOL / CALIBRATION / SENSITIVITY)** を押すと、画像を開くところから0次光の位置合わせまで自動で行います。Calibration Data Name が空なら一番最近保存した波長校正データが入り、感度データは前回選んだものが自動で選ばれます。
 1. **Calibration Dana Name** に**波長校正データ**(これは下のセクションで作成するものです)の名前を入力。**OPEN SENSITIVITY DATA(.csv)** から、感度データを選択します。Relaaseの中の`sensit_distr.csv`がそれです。([準備](#準備-setup))
 1. **EXPORT CSV** ボタンを押します。`Internal_Storage/Documents/FUKASIS-app/csv/spectrum/`下にスペクトルが保存されます。
 
 ### 校正観測・処理
 波長校正の観測です。組み直したときにのみやる想定ですが、もしかしたら観測毎にやるのがベストかもしれません。このあたりまだ検証が済み切っていなくてすみません…
 1. 本観測と同様の手順で(3 &ndash; 8 は省略)、蛍光灯や太陽の反射/散乱光など波長校正用の光源を観測します。**capture quantity**は1枚で良いです。**sequence name**は蛍光灯なら`fluorescent_260314_1`のようにすると分かりやすいかと思います
-1. 観測のデータを**calibration画面**で開き、一番上のスライダーを使って0次光の部分に赤色のラインを載せます。
+1. 観測のデータを**calibration画面**で開き、一番上のスライダーを使って0次光の部分に赤色のラインを載せます。\
+    **AUTO DETECT (FOL & PEAKS)** を押すと、0次光と4本の輝線を自動で検出してスライダーを合わせます(右側の波長の値と、輝線どうしの間隔の比から対応を決めます)。結果を目で確認してから EXPORT CSV してください。うまくいかないときは従来どおり手動で合わせられます。
 1. 他のスライダーで波長(右側のtextbodと画像上の位置(スライダーで動かす)を対応させていきます。3次のlagrange補間をするので、4本必要です。波長の初期値は蛍光灯のものです。(588.0 nmの輝線は分かりづらいですが、オレンジの輝線が2本並んでいるうちの長波長側のものです)\
     波長の数値は変更できるので，三波長型蛍光灯以外を使う場合は事前に調べて打ち込みましょう．同定がけっこう難しいくて……ここはどうしても苦戦するところです
-1. **EXPORT CSV** を押すことで、波長校正データが``に出力されます
+1. **EXPORT CSV** を押すことで、波長校正データが`Internal_Storage/Documents/FUKASIS-app/csv/calibdata/`に出力されます
 
 ### 解析
 主にPCや別アプリで行うことを想定していますが、グラフ表示など最低限の機能はFUKASIS-appに搭載してありあす。\
@@ -454,6 +466,25 @@ csvは最初の2行にヘッダーがあります。
 1行目がsequence name, 時刻, 撮影の設定などです。\
 2行目はラベルを示します。`wavelength/nm,relative intensity(0.0 -- 1.0)`となっています。波長と相対強度で、相対強度はデータの中でもっとも大きな値が$1.0$となるような単位になっています。\
 以降はカンマで区切られた2組のデータが並びます。
+
+### PCで処理する
+
+撮影したデータをPCでじっくり処理したい場合は、次の2つが使えます。どちらもアプリのdark / calibration / csv / view画面に相当する処理ができ、計算結果はアプリと同じになるようにしてあります。
+
+- [web版](./web/README.md) : **<https://igarinpiano.github.io/fukasis/>** をブラウザで開くだけで使えます。画像を見ながら輝線の位置を合わせたり、複数のスペクトルを重ねて比べたりできます。選んだファイルはブラウザの中だけで処理され、どこにも送信されません。ネットにつながない場所では、[GitHub Releases](https://github.com/igarinpiano/fukasis/releases)の`fukasis-web-<バージョン>.zip`を展開して`index.html`を開きます。
+- [コマンドライン版](./cli/README.md) : Rust製です。まとめて処理したいときやスクリプトから呼びたいときに使います。次のどちらかで入れられます（ビルド済みの実行ファイルは[GitHub Releases](https://github.com/igarinpiano/fukasis/releases)にもあります）。
+
+```bash
+npm install -g fukasis
+```
+
+```bash
+cargo install fukasis
+```
+
+`Internal_Storage/Documents/FUKASIS-app/`をPCにコピーして使ってください。
+
+アプリ・web版・コマンドライン版の違いは[docs/platforms.md](./docs/platforms.md)、開発の流れ（ブランチ・PR・公開）は[docs/development.md](./docs/development.md)、新しいバージョンを出す手順は[docs/releasing.md](./docs/releasing.md)にあります。
 
 <br><br><br><br>
 
@@ -516,7 +547,7 @@ FUKASISの開発に至るまでの詳細や，技術的な部分は
 <br><br><br><br>
 
 # お問い合わせ
-質問・相談・不具合の報告などは、**[Twitter@legrs4073](https://x.com/legrs4073)** 又は **[ktgwyi01@gmail.com](mail:ktgwyi01@gmail.com)** 又は **[本repositoryのIssue](https://github.com/legrs/fukasis/issues)** へお気軽にお寄せください。\
+質問・相談・不具合の報告などは、**[Twitter@legrs4073](https://x.com/legrs4073)** 又は **[ktgwyi01@gmail.com](mailto:ktgwyi01@gmail.com)** 又は **[本repositoryのIssue](https://github.com/legrs/fukasis/issues)** へお気軽にお寄せください。\
 ただし、製作者が大学入試に備えるため2026年度中は更新ができない可能性が高いです(応答はできる限りします)。
 
 (この`README.md`は短期間で作成したもので、自分でもちょっと不親切な出来だと思っています。

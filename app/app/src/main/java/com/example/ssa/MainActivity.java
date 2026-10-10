@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.os.Bundle;
 import com.google.android.material.snackbar.Snackbar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.os.LocaleListCompat;
 
 import android.util.Log;
 import android.view.View;
@@ -34,6 +36,7 @@ public class MainActivity extends AppCompatActivity {
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+        SystemBars.pad(binding.getRoot());
 
         Button cap = binding.capBtn;
         cap.setOnClickListener(new View.OnClickListener(){
@@ -71,6 +74,24 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        Button device = binding.deviceBtn;
+        device.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                Intent intent = new Intent(MainActivity.this, DeviceActivity.class);
+                startActivity(intent);
+            }
+        });
+
+        // 日本語 <-> 英語 の切替。選んだ言語はアプリ単位で保存される
+        Button lang = binding.langBtn;
+        lang.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                String current = getResources().getConfiguration().getLocales().get(0).getLanguage();
+                String next = "ja".equals(current) ? "en" : "ja";
+                AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(next));
+            }
+        });
+
         checkAllFilesAccessPermission();
 
     }
@@ -93,12 +114,11 @@ public class MainActivity extends AppCompatActivity {
                 }
             } else {
                 // 既に権限がある場合の処理
-                Toast.makeText(this, "ストレージフルアクセス権限があります", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, R.string.toast_storage_access_granted, Toast.LENGTH_SHORT).show();
             }
-        } else {
-            // Android 10以下の場合は、通常のREAD/WRITEパーミッションを要求
-            // （ここは既存のコードがあると思うので割愛します）
         }
+        // Android 10 (minSdk 29) では, このアプリが MediaStore に作ったファイルは権限なしで読み書きできる.
+        // 感度データなど外部のファイルは ACTION_OPEN_DOCUMENT で選ぶので追加の権限は不要
     }
 }
 

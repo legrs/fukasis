@@ -174,3 +174,73 @@ jobs:
             app/app/build/reports/tests/**
             app/app/build/reports/lint-*
           if-no-files-found: ignore
+  # native-lib.cpp (makecsv / ダーク減算 / スタック保存) を host の OpenCV でビルドし,
+  # 合成データで検証する. Android の NDK ビルドとは別に, 計算ロジックの回帰を検出するためのもの
+  native-test:
+    name: Native unit test (host OpenCV)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install OpenCV
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libopencv-dev pkg-config
+
+      - name: Build & run (Android JNI layer)
+        working-directory: app/app/src/test/cpp
+        run: |
+          CORE=../../../../../core/Sources/FukasisCoreC
+          g++ -std=c++17 -O1 -g -Wall -Wextra -Wno-unused-parameter \
+            -fsanitize=address,undefined -fno-sanitize-recover=undefined \
+            -I stubs -I "$CORE" $(pkg-config --cflags opencv4) \
+            native_lib_test.cpp "$CORE/spectrum.cpp" -o native_lib_test $(pkg-config --libs opencv4)
+          ./native_lib_test
+
+      # Android / iPhone で共有するスペクトル処理 (core/). OpenCV 不要
+      - name: Build & run (shared core)
+        working-directory: core/cpptest
+        run: |
+          CORE=../Sources/FukasisCoreC
+          g++ -std=c++17 -O1 -g -Wall -Wextra -Wno-unused-parameter \
+            -fsanitize=address,undefined -fno-sanitize-recover=undefined \
+            -I "$CORE" -I "$CORE/include" \
+            "$CORE"/*.cpp core_test.cpp -o core_test
+          ./core_test
+
+  # iPhone 版で使う Swift パッケージ (core/) の単体テスト
+  core-swift:
+    name: Swift package test (core)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Test
+        run: swift test --package-path core
+
+  # iPhone 版 (ios/) がビルドできること. 署名はしない (実機に入れるときは各自の Apple ID で署名する)
+  ios-build:
+    name: iOS app build (simulator)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -version
+          xcodebuild -project Fukasis.xcodeproj -scheme Fukasis -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tee build.log | grep -E "error:|warning:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build.log

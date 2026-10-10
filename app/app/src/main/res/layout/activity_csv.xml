@@ -8,16 +8,23 @@
     tools:context=".CsvActivity">
 
 
+    <ScrollView
+        android:id="@+id/scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_weight="0.5"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:paddingStart="@dimen/screen_margin"
+        android:paddingEnd="@dimen/screen_margin"
+        android:paddingBottom="@dimen/scroll_bottom_space"
         android:weightSum="1">
 
         <Space
             android:layout_width="match_parent"
-            android:layout_height="50dp" />
+            android:layout_height="16dp" />
 
         <EditText
             android:id="@+id/input1"
@@ -25,7 +32,7 @@
             android:layout_height="46dp"
             android:ems="10"
             android:inputType="text"
-            android:hint="Sequence Name"
+            android:hint="@string/hint_sequence_name"
             tools:layout_editor_absoluteX="16dp"
             tools:layout_editor_absoluteY="54dp" />
         <Space
@@ -38,7 +45,7 @@
             android:layout_height="46dp"
             android:ems="10"
             android:inputType="text"
-            android:hint="Calibration Data Name"
+            android:hint="@string/hint_calibration_data_name"
             tools:layout_editor_absoluteX="30dp"
             tools:layout_editor_absoluteY="54dp" />
         <Space
@@ -48,7 +55,13 @@
         android:id="@+id/open"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="open image"/>
+        android:text="@string/open_image"/>
+
+        <Button
+            android:id="@+id/autoFol"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/auto_detect_csv" />
 
         <Space
             android:layout_width="match_parent"
@@ -57,7 +70,7 @@
         android:id="@+id/opencsv"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="open sensitivity data(.csv)"/>
+        android:text="@string/open_sensitivity_csv"/>
 
 
         <Space
@@ -68,13 +81,30 @@
             android:id="@+id/iv"
             android:layout_width="match_parent"
             android:layout_height="50dp"
+            android:layout_marginStart="@dimen/screen_margin_negative"
+            android:layout_marginEnd="@dimen/screen_margin_negative"
             android:scaleType="centerCrop"
             app:layout_constraintRight_toRightOf="parent"
             app:srcCompat="@android:drawable/ic_menu_gallery" />
 
-        <Space
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="50dp" />
+            android:layout_height="50dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/brightness_txt"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content" />
+            <SeekBar
+                android:id="@+id/brightness_bar"
+                android:layout_width="0dp"
+                android:layout_height="30dp"
+                android:layout_weight="1"
+                android:min="-20"
+                android:max="40"
+                android:progress="0" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/t1"
@@ -99,11 +129,13 @@
             android:id="@+id/export"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="export csv"
+            android:text="@string/export_csv"
             tools:layout_editor_absoluteX="263dp"
             tools:layout_editor_absoluteY="657dp" />
 
     </LinearLayout>
+
+    </ScrollView>
 
 
 
@@ -125,7 +157,7 @@
     android:layout_height="wrap_content"
     android:layout_marginEnd="12dp"
     android:layout_marginBottom="32dp"
-    android:contentDescription="BACK"
+    android:contentDescription="@string/back"
     app:srcCompat="@drawable/ic_home" 
     app:layout_constraintBottom_toBottomOf="parent"
     app:fabSize="mini"

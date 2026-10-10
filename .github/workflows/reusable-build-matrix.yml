@@ -1,0 +1,158 @@
+# コマンドライン版 (cli/) のリリース用実行ファイルを全ターゲット分ビルドし, 成果物 (bin-<ターゲット>) として残す。
+# publish-all.yml と build-check.yml から呼ばれる。ターゲットの追加・変更はここだけで行う。
+#
+# - macOS と Windows は, それぞれのランナーでそのままビルドする。
+# - Linux / Android / BSD などは cross (cross-rs) でビルドする。cross のイメージは古い glibc に
+#   リンクするので, 古いディストリビューションでも動く実行ファイルになる ("Check glibc floor" で確かめる)。
+#   `cross: true` はタグ付きの cross, `cross: git` は main ブランチの cross で,
+#   タグ付きの版ではビルドできないターゲット (LoongArch, NetBSD, 新しい Android NDK など) にだけ使う。
+#   main のイメージは glibc が新しいので, それ以外には使わない。
+# - `optional: true` のターゲットは, 失敗してもリリース全体は失敗にしない。
+#   その機種の実行ファイルが配られないだけになる。
+# - cli/ は外部クレートにも C のコードにも依存していないので, ターゲットごとの機能の差は無い。
+#
+# npm のパッケージを作るのは npm/targets.js にあるターゲットだけ。
+# それ以外 (Windows GNU, macOS universal, WASI など) は GitHub Releases だけで配る。
+name: build-matrix
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Git ref to build (default: the triggering ref)"
+        type: string
+        default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── 必須 ─────────────────────────────────────────────────
+          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-apple-darwin, os: macos-26-intel }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+          - { target: aarch64-pc-windows-msvc, os: windows-11-arm }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, cross: true, glibc: "2.28" }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-latest, cross: true, glibc: "2.28" }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, cross: true }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-latest, cross: true }
+          # ── 任意: Windows / macOS のほかの形 ─────────────────────
+          - { target: i686-pc-windows-msvc, os: windows-latest, optional: true }
+          - { target: x86_64-pc-windows-gnu, os: windows-latest, optional: true }
+          - { target: universal-apple-darwin, os: macos-latest, universal: true, optional: true }
+          # ── 任意: Linux のほかの CPU ─────────────────────────────
+          - { target: i686-unknown-linux-gnu, os: ubuntu-latest, cross: true, optional: true }
+          - { target: i686-unknown-linux-musl, os: ubuntu-latest, cross: true, optional: true }
+          - { target: i586-unknown-linux-gnu, os: ubuntu-latest, cross: true, optional: true }
+          - { target: armv7-unknown-linux-gnueabihf, os: ubuntu-latest, cross: true, optional: true }
+          - { target: armv7-unknown-linux-musleabihf, os: ubuntu-latest, cross: true, optional: true }
+          - { target: arm-unknown-linux-gnueabihf, os: ubuntu-latest, cross: true, optional: true }
+          - { target: arm-unknown-linux-musleabihf, os: ubuntu-latest, cross: true, optional: true }
+          - { target: arm-unknown-linux-gnueabi, os: ubuntu-latest, cross: true, optional: true }
+          - { target: armv5te-unknown-linux-gnueabi, os: ubuntu-latest, cross: true, optional: true }
+          - { target: riscv64gc-unknown-linux-gnu, os: ubuntu-latest, cross: true, optional: true }
+          - { target: riscv64gc-unknown-linux-musl, os: ubuntu-latest, cross: git, optional: true }
+          - { target: powerpc64le-unknown-linux-gnu, os: ubuntu-latest, cross: true, optional: true }
+          - { target: powerpc64-unknown-linux-gnu, os: ubuntu-latest, cross: true, optional: true }
+          - { target: powerpc-unknown-linux-gnu, os: ubuntu-latest, cross: true, optional: true }
+          - { target: s390x-unknown-linux-gnu, os: ubuntu-latest, cross: true, optional: true }
+          - { target: sparc64-unknown-linux-gnu, os: ubuntu-latest, cross: true, optional: true }
+          - { target: loongarch64-unknown-linux-gnu, os: ubuntu-latest, cross: git, optional: true }
+          - { target: loongarch64-unknown-linux-musl, os: ubuntu-latest, cross: git, optional: true }
+          # ── 任意: Android (Termux), BSD, illumos ─────────────────
+          - { target: aarch64-linux-android, os: ubuntu-latest, cross: git, optional: true }
+          - { target: armv7-linux-androideabi, os: ubuntu-latest, cross: git, optional: true }
+          - { target: x86_64-linux-android, os: ubuntu-latest, cross: git, optional: true }
+          - { target: i686-linux-android, os: ubuntu-latest, cross: git, optional: true }
+          - { target: x86_64-unknown-freebsd, os: ubuntu-latest, cross: true, optional: true }
+          - { target: i686-unknown-freebsd, os: ubuntu-latest, cross: true, optional: true }
+          - { target: x86_64-unknown-netbsd, os: ubuntu-latest, cross: git, optional: true }
+          - { target: x86_64-unknown-illumos, os: ubuntu-latest, cross: true, optional: true }
+          # ── 任意: WebAssembly (WASI. wasmtime などで動かす) ──────
+          - { target: wasm32-wasip1, os: ubuntu-latest, optional: true, exe: fukasis.wasm, nosmoke: true }
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional || false }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      EXE: ${{ matrix.exe || (contains(matrix.target, 'windows') && 'fukasis.exe') || 'fukasis' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.universal && 'aarch64-apple-darwin,x86_64-apple-darwin' || (!matrix.cross && matrix.target) || '' }}
+      - name: Install cross (release)
+        if: matrix.cross == true
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+      - name: Install cross (git)
+        if: matrix.cross == 'git'
+        run: cargo install cross --git https://github.com/cross-rs/cross --locked --force
+      - name: Build (release, native)
+        if: ${{ !matrix.cross && !matrix.universal }}
+        working-directory: cli
+        run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Build (release, cross)
+        if: matrix.cross
+        working-directory: cli
+        run: cross build --release --locked --target ${{ matrix.target }}
+      - name: Build (release, macOS universal)
+        if: matrix.universal
+        working-directory: cli
+        run: |
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            cargo build --release --locked --target "$t"
+          done
+          mkdir -p target/universal-apple-darwin/release
+          lipo -create -output target/universal-apple-darwin/release/fukasis \
+            target/aarch64-apple-darwin/release/fukasis target/x86_64-apple-darwin/release/fukasis
+          lipo -info target/universal-apple-darwin/release/fukasis
+      - name: Check glibc floor
+        # 必須の glibc 版は RHEL 8 / Debian 10 (glibc 2.28) で動くこと
+        if: contains(matrix.target, '-linux-gnu')
+        env:
+          MAX_GLIBC: ${{ matrix.glibc }}
+        run: |
+          bin="cli/target/${{ matrix.target }}/release/fukasis"
+          need="$(readelf -V --wide "$bin" | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' | sort -V | tail -1)"
+          echo "max GLIBC required by ${{ matrix.target }}: ${need:-none}"
+          if [ -n "$MAX_GLIBC" ] && [ -n "$need" ] && [ "$(printf '%s\n%s\n' "$need" "$MAX_GLIBC" | sort -V | tail -1)" != "$MAX_GLIBC" ]; then
+            echo "::error::${{ matrix.target }} requires GLIBC_$need (> $MAX_GLIBC)"
+            exit 1
+          fi
+      - name: Smoke test
+        # ランナーでそのまま動かせるものだけ. testdata の画像を実際に読ませる
+        if: ${{ !matrix.cross && !matrix.nosmoke }}
+        run: |
+          bin="cli/target/${{ matrix.target }}/release/$EXE"
+          "$bin" --version
+          "$bin" info testdata/strips_le.tif
+      - name: Install wasmtime
+        if: matrix.target == 'wasm32-wasip1'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasmtime
+      - name: Smoke test (WASI)
+        if: matrix.target == 'wasm32-wasip1'
+        run: |
+          wasm="cli/target/${{ matrix.target }}/release/$EXE"
+          wasmtime run "$wasm" --version
+          wasmtime run --dir . "$wasm" info testdata/strips_le.tif
+      - name: Collect
+        run: |
+          mkdir -p "out/${{ matrix.target }}"
+          cp "cli/target/${{ matrix.target }}/release/$EXE" "out/${{ matrix.target }}/"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bin-${{ matrix.target }}
+          path: out/
+          if-no-files-found: error

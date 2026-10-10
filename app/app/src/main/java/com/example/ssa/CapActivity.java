@@ -83,10 +83,15 @@ public class CapActivity extends AppCompatActivity {
 
     private Cam cam;
 
-    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) {
-        // super.onRequestPermissionResult(requestCode, permissions, grantResults);
-        if (requestCode == 100 && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            cam.setupCam();
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != CAMERA_PERMISSION_REQUEST_CODE) {
+            return;
+        }
+        // 許可された場合は, この後の onResume でカメラを開く
+        if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "カメラの権限がないため撮影できません", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -99,6 +104,9 @@ public class CapActivity extends AppCompatActivity {
 
         binding = ActivityCapBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+        // プレビューとガイド線の位置は画面の左上が基準なので, 画面全体はずらさず, 操作パネルだけに余白を付ける
+        SystemBars.pad(binding.getRoot(), binding.controls,
+                SystemBars.TOP | SystemBars.RIGHT | SystemBars.BOTTOM, true);
 
         // setContentView(R.layout.activity_main);
 
@@ -108,6 +116,7 @@ public class CapActivity extends AppCompatActivity {
         // !
         Button capBtn = binding.cap;
         Button switchLine = binding.switchLine;
+        Button satBtn = binding.satCheck;
         tv1 = binding.tv1;
         tv2 = binding.tv2;
         captureStatusIcon = binding.captureStatusIcon;
@@ -129,9 +138,9 @@ public class CapActivity extends AppCompatActivity {
         SeekBar expoBar = binding.expoBar;
         AppCompatImageView expoLock = binding.expoLock;
         AppCompatImageView lineLock = binding.lineLock;
-        focusTxt.setText("Focus:" + focusBar.getProgress() + "");
-        isoTxt.setText("ISO:" + isoBar.getProgress() + "");
-        expoTxt.setText("Exposure:" + expoBar.getProgress() + "");
+        focusTxt.setText(getString(R.string.focus_format, String.valueOf(focusBar.getProgress())));
+        isoTxt.setText(getString(R.string.iso_format, isoBar.getProgress()));
+        expoTxt.setText(getString(R.string.exposure_progress_format, expoBar.getProgress()));
         Log.v("a", "executed onCreate            a");
 
         switchLine.setOnClickListener(new View.OnClickListener() {
@@ -148,31 +157,62 @@ if (isLine) {
         capBtn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if(nameText.getText().toString().isEmpty()){
-                    String message = "Please enter a name for the capture sequence.";
+                    String message = getString(R.string.error_enter_sequence_name);
                     Cam.setStatus(Cam.StatusType.ERROR, message, captureStatusIcon, indicator);
                     // Cam.java: setStatusメソッドを使用して、エラーメッセージを表示する
                     return;
                 }
-                int qty = Integer.parseInt(qtyText.getText().toString());
+                int qty;
+                try {
+                    qty = Integer.parseInt(qtyText.getText().toString().trim());
+                } catch (NumberFormatException e) {
+                    qty = 0;
+                }
+                if (qty < 1) {
+                    Cam.setStatus(Cam.StatusType.ERROR, "Please enter a capture quantity of 1 or more.", captureStatusIcon, indicator);
+                    return;
+                }
                 // Log.d("a", String.format("start capture %d ms, %d, %f, %d枚,name:%s", (int) (expo / 1000000L), iso, fd,
                 //         qty, nameText.getText().toString()));
-                cam.startCaptureSession(expo, iso, fd, qty, nameText.getText().toString(), indicator);
-                Log.d("BUTTON", "start capture session！");
                 // captureボタンの透明度を下げる
                 capBtn.setAlpha(0.5f);
                 capBtn.setEnabled(false);
+                satBtn.setAlpha(0.5f);
+                satBtn.setEnabled(false);
+                if (!cam.startCaptureSession(expo, iso, fd, qty, nameText.getText().toString(), indicator)) {
+                    Cam.setStatus(Cam.StatusType.ERROR, "Camera is not ready. Please try again.", captureStatusIcon, indicator);
+                    capBtn.setAlpha(1.0f);
+                    capBtn.setEnabled(true);
+                    satBtn.setAlpha(1.0f);
+                    satBtn.setEnabled(true);
+                    return;
+                }
+                Log.d("BUTTON", "start capture session！");
 
+            }
+        });
+        // 今の設定で 1 枚だけ試し撮りして, 一次光の領域が白飛びしていないかを確かめる
+        satBtn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (cam.startSaturationCheck(expo, iso, fd, indicator)) {
+                    Cam.setStatus(Cam.StatusType.LOADING, getString(R.string.status_checking_saturation),
+                            captureStatusIcon, indicator);
+                    capBtn.setAlpha(0.5f);
+                    capBtn.setEnabled(false);
+                    satBtn.setAlpha(0.5f);
+                    satBtn.setEnabled(false);
+                }
             }
         });
         zoomFF.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (zoom == 0) {
-                    zoomFF.setText("UNZOOM");
+                    zoomFF.setText(R.string.unzoom);
                     zoom = 1;
                     cam.changeValueOfPreview(0, -100, 0, 1);
                 } else {
                     zoom = 0;
-                    zoomFF.setText("ZOOM FOR FOCUSING");
+                    zoomFF.setText(R.string.zoom_for_focusing);
                     cam.changeValueOfPreview(0, -100, 0, 0);
                 }
             }
@@ -180,12 +220,12 @@ if (isLine) {
         zoomFP.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (zoom == 0) {
-                    zoomFP.setText("UNZOOM");
+                    zoomFP.setText(R.string.unzoom);
                     zoom = 2;
                     cam.transformTextures(2);
                 } else {
                     zoom = 0;
-                    zoomFP.setText("ZOOM FOR POINTING");
+                    zoomFP.setText(R.string.zoom_for_pointing);
                     cam.transformTextures(0);
                 }
             }
@@ -204,7 +244,7 @@ if (isLine) {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 fd = (float) i / 100.0f;
-                focusTxt.setText("Focus:" + fd + "");
+                focusTxt.setText(getString(R.string.focus_format, String.valueOf(fd)));
 
                 cam.changeValueOfPreview(0, fd, 0, -1);
             }
@@ -227,12 +267,12 @@ if (isLine) {
                     focusBar.setEnabled(false);
                     focusLock.setImageResource(R.drawable.ic_lock);
                     focusLock.setAlpha(0.5f);
-                    Toast.makeText(CapActivity.this, "Focus bar : Locked", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(CapActivity.this, R.string.toast_focus_locked, Toast.LENGTH_SHORT).show();
                 } else {
                     focusBar.setEnabled(true);
                     focusLock.setImageResource(R.drawable.ic_unlock);
                     focusLock.setAlpha(1.0f);
-                    Toast.makeText(CapActivity.this, "Focus bar : Unlocked", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(CapActivity.this, R.string.toast_focus_unlocked, Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -336,7 +376,9 @@ if (isLine) {
                         break;
                 }
 
-                isoTxt.setText("ISO:" + iso + "");
+                // カメラが受け付けない ISO は受け付ける範囲に収める (表示も実際の値にする)
+                iso = cam.clampIso(iso);
+                isoTxt.setText(getString(R.string.iso_format, iso));
                 cam.changeValueOfPreview(iso, -100, 0, -1);
             }
 
@@ -361,10 +403,14 @@ if (isLine) {
                     ms = Math.pow(10.0, -1.3802807343883 + (double) i * 3.38028073439 / 100.0);
                 }
                 // 1. ミリ秒は (long) にせず double のまま表示に使う（例：小数点以下 2 桁）
-                expoTxt.setText(String.format("Exposure: %.2f ms", ms));
+                expoTxt.setText(getString(R.string.exposure_format, ms));
 
                 // 2. ナノ秒（Camera2 API用）は大きな整数になるので (long) にキャストする
-                expo = (long) (ms * 1000000.0);
+                // カメラが受け付けない露出時間は受け付ける範囲に収める (表示も実際の値にする)
+                expo = cam.clampExposure((long) (ms * 1000000.0));
+                if (expo != (long) (ms * 1000000.0)) {
+                    expoTxt.setText(String.format("Exposure: %.2f ms (camera limit)", expo / 1000000.0));
+                }
 
                 cam.changeValueOfPreview(0, -100, expo, -1);
             }
@@ -381,10 +427,12 @@ if (isLine) {
             @Override
             public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
                 // 0 ~ 1000
+                // ガイド線の位置は筐体と画面によるので端末プロファイルから
+                DeviceProfile profile = DeviceProfiles.current(CapActivity.this);
                 if (zoom == 2) {
-                    line.setY(1800 + i / 10);
+                    line.setY((float) profile.guideLineYPointing() + i / 10);
                 } else {
-                    line.setY(2050 + i / 10);
+                    line.setY((float) profile.guideLineY() + i / 10);
                 }
             }
 
@@ -404,18 +452,15 @@ if (isLine) {
         alarmSound = soundPool.load(this, R.raw.technoalarm, 1);
         shatterSound = soundPool.load(this, R.raw.shatter, 1);
 
-        // cam object
+        // cam object (使うカメラは端末プロファイルで決める. 書かれていなければ RAW で撮れる背面カメラ)
+        camId = DeviceProfiles.cameraId(this);
         cam = new Cam(this, camId, soundPool, alarmSound, shatterSound, tv1, tv2, captureStatusIcon);
 
+        // request camera permission (カメラを開くのは onResume で行う)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.CAMERA },
                     CAMERA_PERMISSION_REQUEST_CODE);
-        } else {
-            cam.setupCam();
         }
-        cam.startBackgroundThread();
-        // request camera permission
-        //
 
     }
 
@@ -425,6 +470,13 @@ if (isLine) {
 
         cam.startBackgroundThread();
         cam.setupCam();
+        // onPause で撮影が中断されていたらボタンを押せる状態に戻す
+        if (!cam.isCapturing()) {
+            binding.cap.setAlpha(1.0f);
+            binding.cap.setEnabled(true);
+            binding.satCheck.setAlpha(1.0f);
+            binding.satCheck.setEnabled(true);
+        }
     }
 
     @Override

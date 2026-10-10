@@ -3,6 +3,7 @@
 package com.example.ssa;
 
 import java.time.Instant;
+import java.util.Locale;
 import android.content.ContentUris;
 import android.graphics.Matrix;
 import android.graphics.RectF;
@@ -24,6 +25,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Build;
+import android.util.Range;
 import android.util.Size;
 import android.view.Surface;
 import android.view.TextureView;
@@ -32,6 +34,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.ssa.databinding.ActivityCapBinding;
 import android.content.Context;
@@ -76,6 +79,10 @@ public class Cam {
     private int maxW, maxH;
     private float maxZoom; // 8.0
 
+    // 端末ごとの設定 (プレビューの見せ方・カラーフィルタ配列)
+    private DeviceProfile profile;
+    private int cfa = DeviceProfile.CFA_GBRG;
+
     private Activity activity;
 
     // Used to load the 'ssa' library on application startup.
@@ -93,7 +100,8 @@ public class Cam {
     private Handler backgroundHandler;
 
     private boolean doPreview;
-    private boolean isCapturing = false;
+    private volatile boolean isCapturing = false;
+    private volatile boolean isOpening = false;
 
     private boolean focus_lock = false;
 
@@ -101,10 +109,17 @@ public class Cam {
     private String sequenceName = "test";
     private int currentCount = 0;
 
+    // 白飛びチェック
+    private int whiteLevel = 0; // 0 なら不明 (チェックしない)
+    private volatile boolean checkOnly = false; // 試し撮り中 (保存もスタックもしない)
+    private int saturatedFrames = 0; // 今の capture sequence で白飛びしていた枚数
+
     // constructor
     public Cam(Activity activity, String camId, SoundPool soundPool, int alarmSound, int shatterSound) {
         this.activity = activity;
         this.camId = camId;
+        this.profile = DeviceProfiles.current(activity);
+        this.cfa = DeviceProfiles.cfa(activity);
         this.soundPool = soundPool;
         this.alarmSound = alarmSound;
         this.shatterSound = shatterSound;
@@ -115,6 +130,8 @@ public class Cam {
             TextureView tv2) {
         this.activity = activity;
         this.camId = camId;
+        this.profile = DeviceProfiles.current(activity);
+        this.cfa = DeviceProfiles.cfa(activity);
         this.soundPool = soundPool;
         this.alarmSound = alarmSound;
         this.shatterSound = shatterSound;
@@ -129,10 +146,9 @@ public class Cam {
         this.captureStatusIcon = captureStatusIcon;
     }
 
-    public static Uri getUri(Activity activity, String path, String name, String type, ContentResolver resolver,
-            ContentValues values) {
+    // path(RELATIVE_PATH) 下の name というファイルを探す. 無ければ null
+    public static Uri findUri(ContentResolver resolver, String path, String name) {
         Uri collection = MediaStore.Files.getContentUri("external");
-        Uri uri = null;
         String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH
                 + "=?";
         String[] selectionArgs = new String[] { name, path };
@@ -144,18 +160,32 @@ public class Cam {
                 selectionArgs,
                 null)) {
             if (cursor != null && cursor.moveToFirst()) {
-                Log.d("a", "ありましたよっ！");
                 long id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
-                // exsists
-                uri = ContentUris.withAppendedId(collection, id);
-            } else {
-                Log.d("a", "な、ないです…");
+                // exists
+                return ContentUris.withAppendedId(collection, id);
             }
-
         }
+        return null;
+    }
+
+    // 書き込みが終わったファイルを確定する. 失敗していたら中途半端なファイルを残さないよう消す
+    public static void finishOutput(ContentResolver resolver, Uri uri, ContentValues values, boolean succeeded) {
+        if (succeeded) {
+            values.clear();
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            resolver.update(uri, values, null, null);
+        } else {
+            resolver.delete(uri, null, null);
+        }
+    }
+
+    // 既存ファイルを上書きする場合は "wt" で開くこと ("w" だと切り詰められず古い内容が末尾に残る)
+    public static Uri getUri(Activity activity, String path, String name, String type, ContentResolver resolver,
+            ContentValues values) {
+        Uri uri = findUri(resolver, path, name);
 
         if (uri == null) {
-            // does not exsists
+            // does not exist
             values.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
             values.put(MediaStore.MediaColumns.MIME_TYPE, type);
             values.put(MediaStore.MediaColumns.RELATIVE_PATH, path);
@@ -165,14 +195,29 @@ public class Cam {
     }
 
     private void setup() {
+        // onResume / onSurfaceTextureAvailable の両方から呼ばれるので二重に開かないようにする
+        if (camDev != null || isOpening) {
+            return;
+        }
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        if (backgroundHandler == null) {
+            startBackgroundThread();
+        }
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
         try {
 
             camCharacteristics = manager.getCameraCharacteristics(camId);
             StreamConfigurationMap map = camCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-            maxZoom = camCharacteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM);
+            Float maxDigitalZoom = camCharacteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM);
+            maxZoom = maxDigitalZoom != null ? maxDigitalZoom : 1.0f;
             Log.d("a", "maxzoom :" + maxZoom); // 8.0
-            Size[] rawSizes = map.getOutputSizes(ImageFormat.RAW_SENSOR);
+            Size[] rawSizes = map != null ? map.getOutputSizes(ImageFormat.RAW_SENSOR) : null;
+            if (rawSizes == null || rawSizes.length == 0) {
+                postError("このカメラは RAW 撮影に対応していません");
+                return;
+            }
             Size largestRaw = rawSizes[0];
             for (Size s : rawSizes) {
                 if (s.getWidth() * s.getHeight() > largestRaw.getWidth() * largestRaw.getHeight())
@@ -180,6 +225,8 @@ public class Cam {
             }
             maxW = largestRaw.getWidth();
             maxH = largestRaw.getHeight();
+            Integer white = camCharacteristics.get(CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL);
+            whiteLevel = (white != null) ? white : 0;
             rawImgReader = ImageReader.newInstance(maxW, maxH, ImageFormat.RAW_SENSOR, 2);
             rawImgReader.setOnImageAvailableListener(onRawImageAvailableListener, backgroundHandler);
 
@@ -202,16 +249,36 @@ public class Cam {
         Log.v("a", "opencam()");
         try {
             CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
+            isOpening = true;
             manager.openCamera(camId, stateCallback, backgroundHandler);
         } catch (SecurityException e) {
+            isOpening = false;
             e.printStackTrace();
         } catch (Exception e) {
+            isOpening = false;
             e.printStackTrace();
         }
     }
 
+    public boolean isCapturing() {
+        return isCapturing;
+    }
+
     public void closeCam() {
         Log.v("a", "closeCam()");
+        if (isCapturing) {
+            // 撮影途中で画面を離れたらシーケンスは中断扱い
+            isCapturing = false;
+            postError("撮影が中断されました");
+        }
+        checkOnly = false;
+        synchronized (this) {
+            if (pendingImage != null) {
+                pendingImage.close();
+                pendingImage = null;
+            }
+            pendingResult = null;
+        }
         if (capSession != null) {
             capSession.close();
             capSession = null;
@@ -284,6 +351,20 @@ public class Cam {
         }
     }
 
+    // カメラが受け付ける範囲に収めた ISO. カメラを開く前はそのまま返す
+    public int clampIso(int iso) {
+        Range<Integer> r = camCharacteristics != null
+                ? camCharacteristics.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE) : null;
+        return r != null ? r.clamp(iso) : iso;
+    }
+
+    // カメラが受け付ける範囲に収めた露出時間 (ns). カメラを開く前はそのまま返す
+    public long clampExposure(long ns) {
+        Range<Long> r = camCharacteristics != null
+                ? camCharacteristics.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE) : null;
+        return r != null ? r.clamp(ns) : ns;
+    }
+
     // iso 50,64,80,100,
     // 125,160,200,250,
     // 320,400,500,640,
@@ -315,7 +396,7 @@ public class Cam {
                 // int cropH = cropW * maxH/maxW;
                 int cropH = sensorRect.height() / 4;
                 int cropX = (sensorRect.width() - cropW) / 2;
-                int cropY = (int) (0.4F * (float) sensorRect.height() - (float) cropH / 2.0F);
+                int cropY = (int) ((float) profile.focusZoomCenterY() * (float) sensorRect.height() - (float) cropH / 2.0F);
 
                 Log.d("a", String.format("%d,%d,%d,%d", cropX, cropY, cropX + cropW, cropY + cropH));
 
@@ -336,9 +417,10 @@ public class Cam {
         }
     }
 
-public void startCaptureSession(long expo, int iso, float fd, int qty, String name, TextView indicator) {
-        if (camDev == null)
-            return;
+    // 撮影を開始できたら true. カメラの準備ができていなければ false
+    public boolean startCaptureSession(long expo, int iso, float fd, int qty, String name, TextView indicator) {
+        if (camDev == null || capSession == null || rawImgReader == null || isCapturing || checkOnly)
+            return false;
 
         try {
             capSession.abortCaptures();
@@ -353,6 +435,8 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
         this.fd = fd;
         this.indicator = indicator;
         currentCount = 0;
+        consecutiveFailures = 0;
+        saturatedFrames = 0;
         Log.d("a", String.format("Capturing…\n%s, %d ms, %d, %f\n%d/%d done", name, expo, iso, fd, currentCount, qty));
         // indicator.setText(String.format("Capturing…\n%s, %d ms, %d, %f\n%d/%d
         // done",name,expo,iso,fd,currentCount,qty));
@@ -370,17 +454,44 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
             // Log.v("a", String.format("start capture %d sec",(int)(expo/1000000L)));
         } catch (CameraAccessException e) {
             e.printStackTrace();
+            return false;
         }
 
         isCapturing = true;
         capture();
+        return true;
+    }
 
+    // UI に失敗を表示して CAPTURE ボタンを押せる状態に戻す
+    private void postError(String message) {
+        if (indicator == null) {
+            Log.e("a", message);
+            activity.runOnUiThread(() -> Toast.makeText(activity, message, Toast.LENGTH_LONG).show());
+            return;
+        }
+        indicator.post(new Runnable() {
+            @Override
+            public void run() {
+                setStatus(StatusType.ERROR, message, captureStatusIcon, indicator);
+                enableButton(R.id.cap);
+                enableButton(R.id.sat_check);
+            }
+        });
     }
 
     private void capture() {
+        if (!isCapturing) {
+            return;
+        }
+        if (camDev == null || capSession == null) {
+            isCapturing = false;
+            postError("カメラが閉じられたため撮影を中断しました");
+            return;
+        }
         if (sequenceLength <= currentCount) {
 
             // end of capture sequence
+            isCapturing = false;
             soundPool.play(alarmSound, 1.0f, 1.0f, 0, 1, 1);
             // save csv & tiff
             // File file = new File(activity.getExternalFilesDir(null), "metadata.csv");
@@ -415,47 +526,52 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
             // activity.getContentResolver().insert(MediaStore.Files.getContentUri("external"),
             // values);
 
-            try {
-                if (uriCsv != null && uriTiff != null && uriPng != null) {
-                    // csv(metadata)
-                    try (OutputStream output = activity.getContentResolver().openOutputStream(uriCsv)) {
+            String saveError = null;
+            if (uriCsv == null || uriTiff == null || uriPng == null) {
+                saveError = "保存先のファイルを作成できません";
+            } else {
+                // csv(metadata)
+                try (OutputStream output = activity.getContentResolver().openOutputStream(uriCsv, "wt")) {
 
-                        String metadata = String.format("%s, %s,  ISO %d, fd %f, %d msec * %d ", sequenceName,
-                                Instant.now().toString(), iso, fd, expo, sequenceLength);
+                    // 後ろの cfa はスペクトル出力が別の端末で行われても Bayer 配列を正しく扱うため
+                    String metadata = String.format(Locale.US, "%s, %s,  ISO %d, fd %f, %d msec * %d , cfa %s, device %s",
+                            sequenceName, Instant.now().toString(), iso, fd, expo, sequenceLength,
+                            DeviceProfile.cfaName(cfa), Build.MODEL);
 
-                        output.write(metadata.getBytes("UTF-8"));
+                    output.write(metadata.getBytes("UTF-8"));
+                    finishOutput(resolver, uriCsv, valuesCsv, true);
 
-                        valuesCsv.clear();
-                        valuesCsv.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                        resolver.update(uriCsv, valuesCsv, null, null);
-
-                        Log.d("a", "csv saved at " + uriCsv.toString());
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        resolver.delete(uriCsv, null, null);
-                    }
-                    // imgs
-                    ParcelFileDescriptor pfdTiff = resolver.openFileDescriptor(uriTiff, "w");
-                    ParcelFileDescriptor pfdPng = resolver.openFileDescriptor(uriPng, "w");
-                    if (pfdTiff != null && pfdPng != null) {
-                        Log.d("a_saveImg", saveImg(pfdTiff.getFd(), pfdPng.getFd()));
-                        pfdTiff.close();
-                        pfdPng.close();
-
-                        valuesTiff.clear();
-                        valuesTiff.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                        resolver.update(uriTiff, valuesTiff, null, null);
-                        valuesPng.clear();
-                        valuesPng.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                        resolver.update(uriPng, valuesPng, null, null);
-
-                        Log.d("a", "saved");
-
-                    }
-
+                    Log.d("a", "csv saved at " + uriCsv.toString());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    finishOutput(resolver, uriCsv, valuesCsv, false);
+                    saveError = "metadata.csv の保存に失敗しました";
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
+                // imgs
+                String imgError;
+                try (ParcelFileDescriptor pfdTiff = resolver.openFileDescriptor(uriTiff, "wt");
+                        ParcelFileDescriptor pfdPng = resolver.openFileDescriptor(uriPng, "wt")) {
+                    if (pfdTiff != null && pfdPng != null) {
+                        imgError = saveImg(pfdTiff.getFd(), pfdPng.getFd(), cfa);
+                    } else {
+                        imgError = "画像ファイルを開けません";
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    imgError = "画像の保存に失敗しました: " + e.getMessage();
+                }
+                boolean imgSaved = imgError.isEmpty();
+                finishOutput(resolver, uriTiff, valuesTiff, imgSaved);
+                finishOutput(resolver, uriPng, valuesPng, imgSaved);
+                if (!imgSaved) {
+                    saveError = imgError;
+                } else {
+                    Log.d("a", "saved");
+                }
+            }
+            if (saveError != null) {
+                postError(saveError);
+                return;
             }
 
             /*
@@ -500,8 +616,8 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
             indicator.post(new Runnable() {
                 @Override
                 public void run() {
-                    String message = String.format("Capture Sequence completed!\nSequence: %s, \nExposure: %d ms, ISO: %d, Focus: %f\n%d/%d done",
-                             sequenceName, expo, iso, fd, currentCount, sequenceLength);
+                    String message = withSaturationWarning(activity.getString(R.string.status_capture_completed,
+                             sequenceName, expo, iso, fd, currentCount, sequenceLength));
                     setStatus(StatusType.SUCCESS, message, captureStatusIcon, indicator);
 
                     // Context 経由で Activity から CAPTURE ボタンを取得して透明度を戻す
@@ -513,6 +629,7 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
                             capBtn.setAlpha(1.0f); // ボタンの透明度を元に戻す
                             capBtn.setEnabled(true); // もし無効化（Disabled）していた場合はタップ可能に戻す
                         }
+                        enableButton(R.id.sat_check);
                     }
                 }
             });
@@ -521,7 +638,7 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
             indicator.post(new Runnable() {
                 @Override
                 public void run() {
-                    String message = String.format("Capturing…\nSequence: %s, \nExposure: %d ms, ISO: %d, Focus: %f\n%d/%d done", sequenceName, expo, iso, fd, currentCount, sequenceLength);
+                    String message = withSaturationWarning(activity.getString(R.string.status_capturing, sequenceName, expo, iso, fd, currentCount, sequenceLength));
                     setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
 
                 }
@@ -529,13 +646,132 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
             try {
                 capSession.capture(capSequenceBuilder.build(), capCallback, backgroundHandler);
                 Log.d("a", "start capture No." + currentCount);
-            } catch (CameraAccessException e) {
+            } catch (CameraAccessException | IllegalStateException e) {
                 e.printStackTrace();
+                isCapturing = false;
+                postError("撮影に失敗しました: " + e.getMessage());
             }
         }
         return;
     }
     
+    // 白飛びチェック: 今の設定で 1 枚だけ試し撮りし, 一次光領域の RAW 値を調べる (保存はしない)。
+    // 試し撮りを始められたら true
+    public boolean startSaturationCheck(long expo, int iso, float fd, TextView indicator) {
+        if (camDev == null || capSession == null || rawImgReader == null || isCapturing || checkOnly) {
+            return false;
+        }
+        this.indicator = indicator;
+        try {
+            capSession.abortCaptures();
+
+            CaptureRequest.Builder builder = camDev.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            builder.addTarget(rawImgReader.getSurface());
+            builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF);
+            builder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, expo);
+            builder.set(CaptureRequest.SENSOR_SENSITIVITY, iso);
+            builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
+            builder.set(CaptureRequest.LENS_FOCUS_DISTANCE, fd);
+
+            checkOnly = true;
+            capSession.capture(builder.build(), checkCallback, backgroundHandler);
+            return true;
+        } catch (CameraAccessException | IllegalStateException e) {
+            e.printStackTrace();
+            checkOnly = false;
+            return false;
+        }
+    }
+
+    // 試し撮りの後始末。止まっているプレビューを再開し, 結果を表示してボタンを戻す
+    private void finishSaturationCheck(final SaturationChecker.Result result) {
+        checkOnly = false;
+        try {
+            if (capSession != null) {
+                capSession.setRepeatingRequest(capRequestBuilder.build(), null, backgroundHandler);
+            }
+        } catch (CameraAccessException | IllegalStateException e) {
+            e.printStackTrace();
+        }
+        indicator.post(new Runnable() {
+            @Override
+            public void run() {
+                if (result == null) {
+                    setStatus(StatusType.ERROR, activity.getString(R.string.error_saturation_check_failed),
+                            captureStatusIcon, indicator);
+                } else {
+                    setStatus(result.anySaturated() ? StatusType.ERROR : StatusType.SUCCESS,
+                            saturationMessage(result), captureStatusIcon, indicator);
+                }
+                enableButton(R.id.cap);
+                enableButton(R.id.sat_check);
+            }
+        });
+    }
+
+    private final CameraCaptureSession.CaptureCallback checkCallback = new CameraCaptureSession.CaptureCallback() {
+        @Override
+        public void onCaptureFailed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request,
+                @NonNull CaptureFailure failure) {
+            if (checkOnly) {
+                finishSaturationCheck(null);
+            }
+        }
+    };
+
+    // 一次光領域の白飛びを調べる。調べられなければ null
+    private SaturationChecker.Result analyzeSaturation(Image img) {
+        if (img == null || whiteLevel <= 0) {
+            return null;
+        }
+        try {
+            Image.Plane plane = img.getPlanes()[0];
+            return SaturationChecker.analyze(plane.getBuffer(), plane.getRowStride(), img.getWidth(),
+                    img.getHeight(), whiteLevel, cfa);
+        } catch (RuntimeException e) {
+            // チェックの失敗で撮影そのものを止めない
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private String saturationMessage(SaturationChecker.Result result) {
+        String message = activity.getString(R.string.saturation_peaks,
+                result.peakPercent(SaturationChecker.R),
+                result.peakPercent(SaturationChecker.G),
+                result.peakPercent(SaturationChecker.B));
+        if (!result.anySaturated()) {
+            return message + "\n" + activity.getString(R.string.saturation_ok);
+        }
+        String[] names = { "R", "G", "B" };
+        StringBuilder channels = new StringBuilder();
+        for (int ch = 0; ch < names.length; ch++) {
+            if (result.isSaturated(ch)) {
+                if (channels.length() > 0) {
+                    channels.append(", ");
+                }
+                channels.append(names[ch]);
+            }
+        }
+        return message + "\n" + activity.getString(R.string.saturation_warning, channels.toString());
+    }
+
+    // capture sequence 中に白飛びしたフレームがあれば, その枚数を status に書き足す
+    private String withSaturationWarning(String message) {
+        if (saturatedFrames > 0) {
+            message += "\n" + activity.getString(R.string.saturation_frames_warning, saturatedFrames, currentCount);
+        }
+        return message;
+    }
+
+    private void enableButton(int id) {
+        Button button = activity.findViewById(id);
+        if (button != null) {
+            button.setAlpha(1.0f);
+            button.setEnabled(true);
+        }
+    }
+
     // ステータス用の enum
     public enum StatusType {
         SUCCESS,
@@ -578,68 +814,149 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
         }
     }
 
-    private TotalCaptureResult lastCapResult;
+    // RAW 画像とそのキャプチャ結果(メタデータ)は別々のコールバックで, 順不同に届く.
+    // SENSOR_TIMESTAMP が一致する組がそろってから処理する (どちらも backgroundHandler 上で呼ばれる)
+    private Image pendingImage;
+    private TotalCaptureResult pendingResult;
+    private static final int MAX_CONSECUTIVE_FAILURES = 3;
+    private int consecutiveFailures = 0;
 
     private final CameraCaptureSession.CaptureCallback capCallback = new CameraCaptureSession.CaptureCallback() {
         @Override
         public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request,
                 @NonNull TotalCaptureResult result) {
             super.onCaptureCompleted(session, request, result);
+            synchronized (Cam.this) {
+                pendingResult = result;
+            }
+            processCapturedFrame();
+        }
 
-            lastCapResult = result;
-
+        @Override
+        public void onCaptureFailed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request,
+                @NonNull CaptureFailure failure) {
+            super.onCaptureFailed(session, request, failure);
+            Log.d("a", "capture failed: " + failure.getReason());
+            synchronized (Cam.this) {
+                if (pendingImage != null) {
+                    pendingImage.close();
+                    pendingImage = null;
+                }
+                pendingResult = null;
+            }
+            // 同じ番号をもう一度撮る
+            if (backgroundHandler != null) {
+                backgroundHandler.postDelayed(() -> capture(), 1000);
+            }
         }
     };
     private final ImageReader.OnImageAvailableListener onRawImageAvailableListener = new ImageReader.OnImageAvailableListener() {
         @Override
         public void onImageAvailable(ImageReader reader) { // ?キャプチャ？
             Log.v("a", "img available");
-            Image img = null;
-
-            img = reader.acquireNextImage();
-
-            if (lastCapResult != null) {
-                Log.d("a", "end capture No." + currentCount);
-                // left vol. right vol. priority loop speed
-                soundPool.play(shatterSound, 1.0f, 1.0f, 0, 0, 1);
-
-                saveDNG(img, lastCapResult);
-                Image.Plane plane = img.getPlanes()[0];
-                ByteBuffer buff = plane.getBuffer();
-
-                // accumulate with OpenCVc++
-                Log.d("a", accumulateImg(buff, plane.getRowStride(), buff.remaining()));
-                currentCount++;
-
-                indicator.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        String message = String.format("Capturing…\n%s, \n%d ms, %d, %f\n%d/%d done", sequenceName,
-                                expo, iso, fd, currentCount, sequenceLength);
-                        setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
-                    }
-                });
-
+            Image img = reader.acquireNextImage();
+            if (checkOnly) {
+                // 白飛びチェック用の試し撮り (保存もスタックもしない)
+                SaturationChecker.Result result = analyzeSaturation(img);
                 if (img != null) {
                     img.close();
                 }
-
-                backgroundHandler.postDelayed(() -> capture(), 1000);
-
-            } else {
-                Log.d("a", "img is null");
-                indicator.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        String message = "obtained NULL IMAGE. Please try again.";
-                        setStatus(StatusType.ERROR, message, captureStatusIcon, indicator);
-                        capture();
-                    }
-                });
+                finishSaturationCheck(result);
+                return;
             }
-
+            if (img == null) {
+                return;
+            }
+            if (!isCapturing) {
+                img.close();
+                return;
+            }
+            synchronized (Cam.this) {
+                if (pendingImage != null) {
+                    pendingImage.close();
+                }
+                pendingImage = img;
+            }
+            processCapturedFrame();
         }
     };
+
+    private void processCapturedFrame() {
+        Image img;
+        TotalCaptureResult result;
+        synchronized (this) {
+            if (pendingImage == null || pendingResult == null) {
+                return;
+            }
+            Long resultTimestamp = pendingResult.get(CaptureResult.SENSOR_TIMESTAMP);
+            if (resultTimestamp != null && resultTimestamp != pendingImage.getTimestamp()) {
+                // 組にならないので古い方を捨てて, 新しい方の相方を待つ
+                if (resultTimestamp < pendingImage.getTimestamp()) {
+                    pendingResult = null;
+                } else {
+                    pendingImage.close();
+                    pendingImage = null;
+                }
+                return;
+            }
+            img = pendingImage;
+            result = pendingResult;
+            pendingImage = null;
+            pendingResult = null;
+        }
+
+        String accumulateError;
+        boolean saturated = false;
+        try {
+            Log.d("a", "end capture No." + currentCount);
+            // left vol. right vol. priority loop speed
+            soundPool.play(shatterSound, 1.0f, 1.0f, 0, 0, 1);
+
+            saveDNG(img, result);
+            SaturationChecker.Result saturation = analyzeSaturation(img);
+            saturated = saturation != null && saturation.anySaturated();
+            Image.Plane plane = img.getPlanes()[0];
+            ByteBuffer buff = plane.getBuffer();
+
+            // accumulate with OpenCVc++
+            accumulateError = accumulateImg(buff, plane.getRowStride(), buff.remaining());
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            accumulateError = String.valueOf(e.getMessage());
+        } finally {
+            img.close();
+        }
+
+        if (!accumulateError.isEmpty()) {
+            // 積算できなかったフレームは枚数に数えず撮り直す. 続けて失敗するなら諦める
+            Log.e("a", "accumulate failed: " + accumulateError);
+            consecutiveFailures++;
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                isCapturing = false;
+                postError("画像の積算に失敗しました: " + accumulateError);
+                return;
+            }
+        } else {
+            consecutiveFailures = 0;
+            currentCount++;
+            if (saturated) {
+                saturatedFrames++;
+            }
+        }
+
+        indicator.post(new Runnable() {
+            @Override
+            public void run() {
+                String message = withSaturationWarning(activity.getString(R.string.status_capturing, sequenceName,
+                        expo, iso, fd, currentCount, sequenceLength));
+                setStatus(StatusType.LOADING, message, captureStatusIcon, indicator);
+            }
+        });
+
+        if (backgroundHandler != null) {
+            backgroundHandler.postDelayed(() -> capture(), 1000);
+        }
+    }
 
     private void saveDNG(Image img, TotalCaptureResult result) {
         ContentValues values = new ContentValues();
@@ -654,19 +971,19 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
         // String selection = MediaStore.MediaColumns.DISPLAY_NAME + "=?";
         // String[] selectionArgs = new String[]{ currentCount + ".dng" };
 
-        //// search whether same file exsists.
+        //// search whether same file exists.
         // try(Cursor c = resolver.query(collection,new
         //// String[]{MediaStore.MediaColumns._ID},selection,selectionArgs,null)){
         // if(c != null && c.moveToFirst()){
         // long id = c.getLong(c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID));
-        // // exsists
+        // // exists
         // uri = ContentUris.withAppendedId(collection, id);
         // }
         // }
         //
 
         // if(uri == null){
-        // // does not exsists
+        // // does not exist
         // ContentValues values = new ContentValues();
         // values.put(MediaStore.MediaColumns.DISPLAY_NAME, currentCount + ".dng");
         // values.put(MediaStore.MediaColumns.MIME_TYPE, "image/x-adobe-dng");
@@ -728,6 +1045,7 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
     private final CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(@NonNull CameraDevice cam) {
+            isOpening = false;
             camDev = cam;
             if (doPreview) {
                 createCamPreviewSession();
@@ -737,12 +1055,23 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
 
         @Override
         public void onDisconnected(@NonNull CameraDevice cam) {
+            isOpening = false;
             cam.close();
+            if (camDev == cam) {
+                camDev = null;
+                capSession = null;
+            }
         }
 
         @Override
         public void onError(@NonNull CameraDevice cam, int error) {
+            isOpening = false;
             cam.close();
+            if (camDev == cam) {
+                camDev = null;
+                capSession = null;
+            }
+            postError("カメラでエラーが発生しました (" + error + ")");
         }
     };
     private final TextureView.SurfaceTextureListener textureListener = new TextureView.SurfaceTextureListener() {
@@ -776,6 +1105,9 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
     };
 
     public void startBackgroundThread() {
+        if (backgroundThread != null) {
+            return;
+        }
         backgroundThread = new HandlerThread("Camerabackground");
         backgroundThread.start();
         backgroundHandler = new Handler(backgroundThread.getLooper());
@@ -806,8 +1138,9 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
         if (zoom == 2) {
             s = 4f;
         }
-        float ratio1 = 3.79668f;
-        float ratio2 = 1.05125f;
+        // プレビューの台形補正 (筐体の中のカメラの向きで決まるので端末ごとに違う)
+        float ratio1 = (float) profile.keystone();
+        float ratio2 = (float) profile.stretch();
         float ratio3 = 0.86667f;
         float w = tv1.getWidth();
         float h = tv1.getHeight();
@@ -878,5 +1211,5 @@ public void startCaptureSession(long expo, int iso, float fd, int qty, String na
     public native String accumulateImg(ByteBuffer buff, int rowStride, int bufferSize);
 
     // public native byte[] processImg(String filepath);
-    public native String saveImg(int fdTiff, int fdPng);
+    public native String saveImg(int fdTiff, int fdPng, int cfa);
 }

@@ -25,7 +25,7 @@ public class CustomMarkerView extends MarkerView {
     @Override
     public void refreshContent(Entry e, Highlight highlight) {
         // e.getX() が波長、e.getY() が強度です
-        String text = "wavelength: " + e.getX() + "\nintensity: " + e.getY();
+        String text = getContext().getString(R.string.marker_format, String.valueOf(e.getX()), String.valueOf(e.getY()));
         tvContent.setText(text);
 
         // 必須：レイアウトのサイズを再計算させる

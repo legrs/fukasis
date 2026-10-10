@@ -1,0 +1,64 @@
+# リリース用の全ターゲットを, 何も公開せずにビルドする。
+# ターゲットや npm のパッケージの作り方を変えたあとの確認用 (それらを変えた push でも動く)。
+name: build-check
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag/commit to build (empty = the branch selected above)"
+        required: false
+        default: ""
+  push:
+    paths:
+      - ".github/workflows/reusable-build-matrix.yml"
+      - ".github/workflows/build-check.yml"
+      - "npm/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/reusable-build-matrix.yml
+    with:
+      ref: ${{ inputs.ref }}
+
+  summary:
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: bin-*
+          merge-multiple: true
+          path: binaries
+      - name: Built targets and npm packages
+        run: |
+          ls binaries | sed 's/^/built: /'
+          node npm/assemble.js --version 0.0.0 --binaries binaries --out npm-out
+          find npm-out -name package.json | sort
+      # 組み立てたパッケージを実際に入れて, npm 経由で fukasis が動くことを確かめる
+      - name: Install the assembled packages and run
+        run: |
+          mkdir tarballs try
+          for d in npm-out/@fksgeo/fukasis-bin-linux-x64 npm-out/fukasis; do
+            (cd "$d" && npm pack --silent --pack-destination "$GITHUB_WORKSPACE/tarballs")
+          done
+          cd try
+          npm init -y > /dev/null
+          # 機種別パッケージは 0.0.0 としては registry に無いので, 手元の tarball から入れる
+          npm install --no-audit --no-fund ../tarballs/fksgeo-fukasis-bin-linux-x64-0.0.0.tgz
+          npm install --no-audit --no-fund --omit=optional ../tarballs/fukasis-0.0.0.tgz
+          npx --no-install fukasis --version
+          npx --no-install fukasis info ../testdata/strips_le.tif
+      # musl 版は静的リンクなので, glibc のランナーでもそのまま動く
+      - name: Run the static musl build
+        run: |
+          bin=npm-out/@fksgeo/fukasis-bin-linux-x64-musl/bin/fukasis
+          "$bin" --version
+          "$bin" info testdata/strips_le.tif

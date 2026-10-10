@@ -1,3 +1,10 @@
 <resources>
     <dimen name="fab_margin">16dp</dimen>
+    <dimen name="chart_height">500dp</dimen>
+    <!-- 画面の左右の余白. ボタンや文字が画面のふちに付かないようにする -->
+    <dimen name="screen_margin">12dp</dimen>
+    <!-- 余白の中で, 画像だけは画面の幅いっぱいに出すための打ち消し -->
+    <dimen name="screen_margin_negative">-12dp</dimen>
+    <!-- スクロールの最後に空ける高さ. いちばん下の項目が, 右下のホームボタンの上まで上がるようにする -->
+    <dimen name="scroll_bottom_space">96dp</dimen>
 </resources>

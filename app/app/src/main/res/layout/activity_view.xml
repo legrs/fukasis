@@ -11,25 +11,44 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
+        android:paddingStart="@dimen/screen_margin"
+        android:paddingEnd="@dimen/screen_margin"
         android:weightSum="1">
 
         <Space
             android:layout_width="match_parent"
-            android:layout_height="40dp" />
+            android:layout_height="8dp" />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
         <Button
             android:id="@+id/open"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="open spectrum(.csv)"/>
-        <Space
+            android:text="@string/open_spectrum_csv"/>
+            <Switch
+                android:id="@+id/outlier_switch"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:checked="true"
+                android:text="@string/exclude_outliers" />
+        </LinearLayout>
+        <TextView
+            android:id="@+id/info"
             android:layout_width="match_parent"
-            android:layout_height="20dp" />
+            android:layout_height="wrap_content"
+            android:minHeight="20dp" />
 
         <com.github.mikephil.charting.charts.LineChart
             android:id="@+id/lineChart"
             android:layout_width="match_parent"
-            android:layout_height="500dp" />
+            android:layout_height="@dimen/chart_height" />
 
 
 
@@ -40,7 +59,7 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="32dp"
-        android:contentDescription="BACK"
+        android:contentDescription="@string/back"
         app:srcCompat="@drawable/ic_home"
         app:layout_constraintBottom_toBottomOf="parent"
         app:fabSize="mini"

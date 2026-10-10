@@ -1,0 +1,50 @@
+# web 版 (web/) を GitHub Pages に載せる: https://igarinpiano.github.io/fukasis/
+# release ブランチの web/ が変わるたびに載せ直す。手動でも実行できる。
+# ビルドは無い (index.html, css/, js/ をそのまま置くだけ)。
+# 載せるのは igarinpiano/fukasis だけ (ほかのリポジトリではジョブを飛ばす)。
+name: pages
+
+on:
+  push:
+    branches:
+      - release
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 載せている途中で次が来たら, 途中のものは最後まで終わらせて順番に載せる
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'igarinpiano/fukasis'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      # 載せる前に, テストが通っていることを確かめる
+      - name: Test
+        run: node --test web/test/core.test.js web/test/server.test.js
+      # ページに要るものだけを置く (bin/ や test/ は載せない)
+      - name: Collect the site
+        run: |
+          mkdir _site
+          cp -R web/index.html web/css web/js LICENSE _site/
+          ls -R _site
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v5

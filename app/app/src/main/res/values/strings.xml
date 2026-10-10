@@ -1,12 +1,12 @@
 <resources>
-    <string name="app_name">FUKASIS-App</string>
+    <string name="app_name" translatable="false">FUKASIS-App</string>
     <!-- Strings used for fragments for navigation -->
-    <string name="first_fragment_label">First Fragment</string>
-    <string name="second_fragment_label">Second Fragment</string>
-    <string name="next">Next</string>
-    <string name="previous">Previous</string>
+    <string name="first_fragment_label" translatable="false">First Fragment</string>
+    <string name="second_fragment_label" translatable="false">Second Fragment</string>
+    <string name="next" translatable="false">Next</string>
+    <string name="previous" translatable="false">Previous</string>
 
-    <string name="lorem_ipsum">
+    <string name="lorem_ipsum" translatable="false">
         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam in scelerisque sem. Mauris
         volutpat, dolor id interdum ullamcorper, risus dolor egestas lectus, sit amet mattis purus
         dui nec risus. Maecenas non sodales nisi, vel dictum dolor. Class aptent taciti sociosqu ad
@@ -43,5 +43,81 @@
         vestibulum. Fusce dictum libero quis erat maximus, vitae volutpat diam dignissim.
     </string>
     <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="hello_blank_fragment" translatable="false">Hello blank fragment</string>
+
+    <!-- common -->
+    <string name="hint_sequence_name">Sequence Name</string>
+    <string name="hint_calibration_data_name">Calibration Data Name</string>
+    <string name="open_image">open image</string>
+    <string name="auto_detect_calib">Auto detect (0th order &amp; lines)</string>
+    <string name="auto_detect_csv">Auto (0th order / calibration / sensitivity)</string>
+    <string name="export_csv">export csv</string>
+    <string name="back">Back</string>
+
+    <!-- main -->
+    <string name="menu_capture">capture</string>
+    <string name="menu_dark">dark</string>
+    <string name="menu_csv">csv</string>
+    <string name="menu_calibration">calibration</string>
+    <string name="menu_view">view spectrum graph</string>
+    <string name="menu_device">device setup</string>
+    <!-- 切替先の言語名を表示する -->
+    <string name="switch_language">日本語</string>
+    <string name="toast_storage_access_granted">All files access is granted</string>
+
+    <!-- capture -->
+    <string name="focus_label">Focus</string>
+    <string name="focus_format">Focus:%1$s</string>
+    <string name="iso_format" translatable="false">ISO:%1$d</string>
+    <string name="exposure_label">Exposure:100 ms</string>
+    <string name="exposure_progress_format">Exposure:%1$d</string>
+    <string name="exposure_format">Exposure: %1$.2f ms</string>
+    <string name="switch_long">long</string>
+    <string name="zoom_for_focusing">ZOOM FOR FOCUSING</string>
+    <string name="zoom_for_pointing">ZOOM FOR POINTING</string>
+    <string name="unzoom">UNZOOM</string>
+    <string name="label_sequence_name">sequence name</string>
+    <string name="hint_name">Name</string>
+    <string name="label_capture_quantity">capture quantity</string>
+    <string name="capture">CAPTURE</string>
+    <string name="capture_status_icon">capture status icon</string>
+    <string name="status_idle">status:</string>
+    <string name="switch_line">SWITCH LINE</string>
+    <string name="toast_focus_locked">Focus bar : Locked</string>
+    <string name="toast_focus_unlocked">Focus bar : Unlocked</string>
+    <string name="error_enter_sequence_name">Please enter a name for the capture sequence.</string>
+    <string name="status_capturing">Capturing…\nSequence: %1$s\nExposure: %2$d ms, ISO: %3$d, Focus: %4$f\n%5$d/%6$d done</string>
+    <string name="status_capture_completed">Capture sequence completed!\nSequence: %1$s\nExposure: %2$d ms, ISO: %3$d, Focus: %4$f\n%5$d/%6$d done</string>
+    <string name="error_null_image">Obtained a null image. Please try again.</string>
+    <string name="check_saturation">CHECK SATURATION</string>
+    <string name="status_checking_saturation">Checking saturation with a test shot…</string>
+    <string name="saturation_peaks">Peak in the 1st-order region (100%% = white level)\nR: %1$d%%  G: %2$d%%  B: %3$d%%</string>
+    <string name="saturation_ok">No channel is saturated.</string>
+    <string name="saturation_warning">Saturated: %1$s. Lower the ISO or the exposure time.</string>
+    <string name="saturation_frames_warning">⚠ Saturated frames: %1$d/%2$d</string>
+    <string name="error_saturation_check_failed">Saturation check failed. Please try again.</string>
+
+    <!-- dark -->
+    <string name="label_light">Light</string>
+    <string name="label_dark">Dark</string>
+    <string name="process">process</string>
+
+    <!-- csv -->
+    <string name="open_sensitivity_csv">open sensitivity data (.csv)</string>
+
+    <!-- calibration -->
+    <string name="brightness_format">Brightness ×%1$.1f</string>
+    <string name="hint_nm" translatable="false">nm</string>
+    <string name="extra_lines_label">Extra lines (optional; checked ones are used)</string>
+    <string name="calib_saved">Calibration data saved. Output range: %1$d–%2$d nm</string>
+    <string name="calib_warning_truncated">Saved, but the wavelength turns back partway, so only %1$d–%2$d nm will be output. Check the bar positions and wavelengths, or add calibration lines.</string>
+    <string name="calib_warning_no_output">Saved, but no pixel maps to 400–700 nm with this calibration data. Check the bar positions and wavelengths.</string>
+
+    <!-- view -->
+    <string name="open_spectrum_csv">open spectrum (.csv)</string>
+    <string name="legend_spectrum">Spectrum</string>
+    <string name="marker_format">wavelength: %1$s\nintensity: %2$s</string>
+    <string name="exclude_outliers">Hide outliers</string>
+    <string name="spectrum_points_info">%1$d points shown, %2$d excluded</string>
+    <string name="no_valid_data">No valid data to plot.</string>
 </resources>

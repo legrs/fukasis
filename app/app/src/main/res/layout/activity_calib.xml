@@ -7,15 +7,23 @@
     android:layout_height="match_parent"
     tools:context=".CalibActivity">
 
+    <ScrollView
+        android:id="@+id/scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:paddingStart="@dimen/screen_margin"
+        android:paddingEnd="@dimen/screen_margin"
+        android:paddingBottom="@dimen/scroll_bottom_space"
         android:weightSum="1">
 
         <Space
             android:layout_width="match_parent"
-            android:layout_height="50dp" />
+            android:layout_height="16dp" />
 
         <EditText
             android:id="@+id/input1"
@@ -23,7 +31,7 @@
             android:layout_height="46dp"
             android:ems="10"
             android:inputType="text"
-            android:hint="Sequence Name"
+            android:hint="@string/hint_sequence_name"
             tools:layout_editor_absoluteX="16dp"
             tools:layout_editor_absoluteY="54dp" />
         <Space
@@ -36,7 +44,7 @@
             android:layout_height="46dp"
             android:ems="10"
             android:inputType="text"
-            android:hint="Calibration Data Name"
+            android:hint="@string/hint_calibration_data_name"
             tools:layout_editor_absoluteX="30dp"
             tools:layout_editor_absoluteY="54dp" />
         <Space
@@ -46,10 +54,17 @@
             android:id="@+id/open"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="open image"
+            android:text="@string/open_image"
             tools:layout_editor_absoluteX="293dp"
             tools:layout_editor_absoluteY="54dp" />
 
+        <Button
+            android:id="@+id/autoCalib"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/auto_detect_calib"
+            tools:layout_editor_absoluteX="293dp"
+            tools:layout_editor_absoluteY="54dp" />
 
         <Space
             android:layout_width="match_parent"
@@ -58,6 +73,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="50dp"
+            android:layout_marginStart="@dimen/screen_margin_negative"
+            android:layout_marginEnd="@dimen/screen_margin_negative"
             android:orientation="horizontal"
             android:weightSum="1">
 
@@ -79,9 +96,24 @@
 
         </LinearLayout>
 
-        <Space
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="20dp" />
+            android:layout_height="30dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/brightness_txt"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content" />
+            <SeekBar
+                android:id="@+id/brightness_bar"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:min="-20"
+                android:max="40"
+                android:progress="0" />
+        </LinearLayout>
 
 
 
@@ -125,7 +157,7 @@
                 android:layout_weight="0.2"
                 android:inputType="numberDecimal"
                 android:text="435.8"
-                android:hint="nm"
+                android:hint="@string/hint_nm"
                 android:textColor="#FFFFFF"/>
         </LinearLayout>
 
@@ -154,7 +186,7 @@
                 android:layout_weight="0.2"
                 android:inputType="numberDecimal"
                 android:text="546.1"
-                android:hint="nm"
+                android:hint="@string/hint_nm"
                 android:textColor="#FFFFFF"/>
         </LinearLayout>
 
@@ -183,7 +215,7 @@
                 android:layout_weight="0.2"
                 android:inputType="numberDecimal"
                 android:text="588.0"
-                android:hint="nm"
+                android:hint="@string/hint_nm"
                 android:textColor="#FFFFFF"/>
         </LinearLayout>
 
@@ -212,7 +244,80 @@
                 android:layout_weight="0.2"
                 android:inputType="numberDecimal"
                 android:text="611.6"
-                android:hint="nm"
+                android:hint="@string/hint_nm"
+                android:textColor="#FFFFFF"/>
+        </LinearLayout>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="20dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/extra_lines_label" />
+
+        <TextView
+            android:id="@+id/t6"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="50" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="1">
+            <CheckBox
+                android:id="@+id/extra_check1"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent" />
+            <SeekBar
+                android:id="@+id/sb6"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:min="1800"
+                android:max="2900"
+                android:layout_weight="0.8"/>
+            <EditText
+                android:id="@+id/c5"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.2"
+                android:inputType="numberDecimal"
+                android:text="404.7"
+                android:hint="@string/hint_nm"
+                android:textColor="#FFFFFF"/>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/t7"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="50" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="1">
+            <CheckBox
+                android:id="@+id/extra_check2"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent" />
+            <SeekBar
+                android:id="@+id/sb7"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:min="1800"
+                android:max="2900"
+                android:layout_weight="0.8"/>
+            <EditText
+                android:id="@+id/c6"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.2"
+                android:inputType="numberDecimal"
+                android:text="631.1"
+                android:hint="@string/hint_nm"
                 android:textColor="#FFFFFF"/>
         </LinearLayout>
 
@@ -228,11 +333,13 @@
             android:id="@+id/export"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="export csv"
+            android:text="@string/export_csv"
             tools:layout_editor_absoluteX="263dp"
             tools:layout_editor_absoluteY="657dp" />
 
     </LinearLayout>
+
+    </ScrollView>
 
 
 
@@ -296,13 +403,39 @@
             android:layout_height="220dp"
             android:background="#FF0000" />
     </FrameLayout>
+    <FrameLayout
+        tools:ignore="MissingConstraints"
+        android:id="@+id/l6"
+        android:layout_width="0dp"
+        android:layout_height="50dp"
+        android:visibility="invisible"
+        android:background="#000000">
+        <ImageView
+            android:id="@+id/line_view6"
+            android:layout_width="3px"
+            android:layout_height="220dp"
+            android:background="#00FFFF" />
+    </FrameLayout>
+    <FrameLayout
+        tools:ignore="MissingConstraints"
+        android:id="@+id/l7"
+        android:layout_width="0dp"
+        android:layout_height="50dp"
+        android:visibility="invisible"
+        android:background="#000000">
+        <ImageView
+            android:id="@+id/line_view7"
+            android:layout_width="3px"
+            android:layout_height="220dp"
+            android:background="#FFFF00" />
+    </FrameLayout>
 <com.google.android.material.floatingactionbutton.FloatingActionButton
     android:id="@+id/home_button"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_marginEnd="12dp"
     android:layout_marginBottom="32dp"
-    android:contentDescription="BACK"
+    android:contentDescription="@string/back"
     app:srcCompat="@drawable/ic_home" 
     app:layout_constraintBottom_toBottomOf="parent"
     app:fabSize="mini"

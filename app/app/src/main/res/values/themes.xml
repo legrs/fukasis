@@ -13,6 +13,14 @@
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
     </style>
+    <!-- 撮像画面の操作パネル (画面の右半分) のボタン. 幅が狭いので左右の余白を詰め,
+         長い文字 (日本語) でも 1 行に収まりやすくする. 高さは押しやすい大きさを確保する.
+         親を指定していないので, 見た目のほかの部分はテーマの既定のボタンのまま -->
+    <style name="CaptureButton">
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:minHeight">52dp</item>
+    </style>
     <!-- Base application theme. -->
     <style name="Base.Theme.SSA" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->

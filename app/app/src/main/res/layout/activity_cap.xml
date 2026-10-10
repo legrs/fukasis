@@ -41,11 +41,21 @@
         </LinearLayout>
 
 
-        <LinearLayout
+        <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="0.5"
-            android:orientation="vertical">
+            android:layout_weight="0.5">
+
+        <!-- プレビューや画面の端にボタンがぴったり付かないよう, 左右に余白を取る.
+             システムバーの分の余白は CapActivity (SystemBars) が足す -->
+        <LinearLayout
+            android:id="@+id/controls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="16dp">
 
             <Space
                 android:layout_width="match_parent"
@@ -55,14 +65,15 @@
                 android:id="@+id/focus_txt"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Focus" />
+                android:text="@string/focus_label" />
 
      <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:padding="8dp">
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
 
     <SeekBar
         android:id="@+id/focus_bar"
@@ -74,13 +85,12 @@
 
     <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/focus_lock"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_marginStart="8dp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:clickable="true"
         android:focusable="true"
-        android:padding="4dp"
+        android:padding="10dp"
         android:src="@drawable/ic_unlock" />
 
 </LinearLayout>
@@ -95,7 +105,8 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:padding="8dp">
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
 
                 <SeekBar
                     android:id="@+id/iso_bar"
@@ -107,13 +118,12 @@
 
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/iso_lock"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:clickable="true"
                     android:focusable="true"
-                    android:padding="4dp"
+                    android:padding="10dp"
                     android:src="@drawable/ic_unlock" />
             </LinearLayout>
 
@@ -131,14 +141,14 @@
                 android:id="@+id/expo_txt"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Exposure:100 ms" />
+                android:text="@string/exposure_label" />
 
             <Switch
                 android:id="@+id/expo_switch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:checked="false"
-                android:text="long" />
+                android:text="@string/switch_long" />
 
             <Space
                 android:layout_width="match_parent"
@@ -149,7 +159,8 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:padding="8dp">
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
 
                 <SeekBar
                     android:id="@+id/expo_bar"
@@ -161,13 +172,12 @@
 
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/expo_lock"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:layout_marginStart="8dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:clickable="true"
                     android:focusable="true"
-                    android:padding="4dp"
+                    android:padding="10dp"
                     android:src="@drawable/ic_unlock" />
             </LinearLayout>
 
@@ -177,9 +187,10 @@
 
             <Button
                 android:id="@+id/zoomFF"
-                android:layout_width="wrap_content"
+                style="@style/CaptureButton"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="ZOOM FOR FOCUSING" />
+                android:text="@string/zoom_for_focusing" />
 
             <Space
                 android:layout_width="match_parent"
@@ -187,9 +198,10 @@
 
             <Button
                 android:id="@+id/zoomFP"
-                android:layout_width="wrap_content"
+                style="@style/CaptureButton"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="ZOOM FOR POINTING" />
+                android:text="@string/zoom_for_pointing" />
 
             <Space
                 android:layout_width="match_parent"
@@ -206,7 +218,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="0.4"
-                    android:text="sequence name" />
+                    android:text="@string/label_sequence_name" />
 
                 <EditText
                     android:id="@+id/nameText"
@@ -215,7 +227,7 @@
                     android:layout_weight="0.6"
                     android:ems="10"
                     android:inputType="text"
-                    android:hint="Name" />
+                    android:hint="@string/hint_name" />
 
             </LinearLayout>
 
@@ -230,7 +242,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="0.4"
-                    android:text="capture quantity" />
+                    android:text="@string/label_capture_quantity" />
 
 
                 <EditText
@@ -257,66 +269,79 @@
 
                 <Button
                     android:id="@+id/cap"
-                    android:layout_width="wrap_content"
+                    style="@style/CaptureButton"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="CAPTURE" />
+                    android:layout_weight="1"
+                    android:text="@string/capture" />
 
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/capture_status_icon"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="8dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:clickable="false"
                     android:focusable="false"
                     android:padding="4dp"
                     
-                    android:contentDescription="capture status icon" />
+                    android:contentDescription="@string/capture_status_icon" />
 
             </LinearLayout>
+
+            <Button
+                android:id="@+id/sat_check"
+                style="@style/CaptureButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/check_saturation" />
 
             <TextView
                 android:id="@+id/indicator"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="status:" />
+                android:text="@string/status_idle" />
 
             <Button
                 android:id="@+id/switch_line"
-                android:layout_width="wrap_content"
+                style="@style/CaptureButton"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="SWITCH LINE" />
+                android:text="@string/switch_line" />
                     
         <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:padding="8dp">
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
 
 
                 <SeekBar
                     android:id="@+id/line_bar"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:max="1000"
                     android:min="0" />
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/line_lock"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"
-            android:padding="4dp"
+            android:padding="10dp"
             android:src="@drawable/ic_unlock" />
 
 
         </LinearLayout>
 
     </LinearLayout>
+
+        </ScrollView>
     <LinearLayout
         tools:ignore="MissingConstraints"
         android:layout_width="0dp"

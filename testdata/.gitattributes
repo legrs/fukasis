@@ -1,0 +1,3 @@
+# テストの正解データは改行コードも含めて固定する
+*.csv text eol=lf
+*.tif binary

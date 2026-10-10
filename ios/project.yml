@@ -1,0 +1,52 @@
+# iPhone 版 FUKASIS の Xcode プロジェクト定義 (XcodeGen).
+#   brew install xcodegen
+#   cd ios && xcodegen generate && open Fukasis.xcodeproj
+# 生成された Fukasis.xcodeproj と Fukasis/Info.plist はコミットしない (.gitignore)
+name: Fukasis
+options:
+  bundleIdPrefix: io.github.legrs
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+packages:
+  FukasisCore:
+    path: ../core
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Fukasis:
+    type: application
+    platform: iOS
+    sources:
+      - path: Fukasis
+      # 端末ごとの設定 (Android 版と共有)
+      - path: ../profiles/device_profiles.json
+        buildPhase: resources
+    dependencies:
+      - package: FukasisCore
+        product: FukasisCore
+    info:
+      path: Fukasis/Info.plist
+      properties:
+        CFBundleDisplayName: FUKASIS
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        NSCameraUsageDescription: 分光器に取り付けたカメラでスペクトルを撮影します
+        # 撮影した画像やスペクトルを「ファイル」アプリから取り出せるようにする
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIApplicationSupportsIndirectInputEvents: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.legrs.fukasis
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        # 実機で動かすときは Xcode の Signing & Capabilities で自分の Team を選ぶ
+        DEVELOPMENT_TEAM: ""
+    scheme: {}
